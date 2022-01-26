@@ -51,17 +51,16 @@ void pipewire_wait();
 void pipewire_continue();
 
 /**
- * Enumerate all objects connected to the PipeWire instance
+ * Add listeners to the PipeWire registry
+ * @param call_now Call the callbacks now
  */
-void pipewire_enum_objects(const struct pw_registry_events *callbacks,
-			   void *data);
+void pipewire_add_registry_listener(bool call_now, struct spa_hook *hook, const struct pw_registry_events *callbacks, void *data);
 
 /**
  * Crate a PipeWire stream that can be connected to a node later
  * in order to get data from it
  */
-struct pw_stream *pipewire_stream_new(struct pw_properties *props,
-				      struct spa_hook *stream_listener,
+struct pw_stream *pipewire_stream_new(bool capture_sink,
 				      const struct pw_stream_events *callbacks,
 				      void *data);
 

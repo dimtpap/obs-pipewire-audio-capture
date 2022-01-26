@@ -23,8 +23,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/audio/type-info.h>
 
-#include <obs.h>
-
 static uint32_t pipewire_refs = 0;
 static struct pw_thread_loop *pipewire_mainloop = NULL;
 static struct pw_context *pipewire_context = NULL;
@@ -37,12 +35,15 @@ void pipewire_init()
 		pw_init(NULL, NULL);
 
 		pipewire_mainloop = pw_thread_loop_new("OBS Studio", NULL);
+
+		pipewire_lock();
+
 		if (pw_thread_loop_start(pipewire_mainloop) != 0) {
 			pw_thread_loop_destroy(pipewire_mainloop);
+			pipewire_unlock();
 			return;
 		};
 
-		pipewire_lock();
 		pipewire_context = pw_context_new(
 			pw_thread_loop_get_loop(pipewire_mainloop), NULL, 0);
 
@@ -59,9 +60,11 @@ void pipewire_init()
 void pipewire_unref()
 {
 	if (--pipewire_refs == 0) {
-
 		pipewire_lock();
 
+		if (pipewire_registry) {
+			pw_proxy_destroy((struct pw_proxy *)pipewire_registry);
+		}
 		if (pipewire_core) {
 			pw_core_disconnect(pipewire_core);
 		}
@@ -101,37 +104,40 @@ void pipewire_continue()
 	pw_thread_loop_signal(pipewire_mainloop, false);
 }
 
-void pipewire_enum_objects(const struct pw_registry_events *callbacks,
-			   void *data)
+void pipewire_add_registry_listener(bool call_now, struct spa_hook *hook,
+				    const struct pw_registry_events *callbacks,
+				    void *data)
 {
-	struct pw_registry *registry;
-	struct spa_hook registry_listner;
-
 	pipewire_lock();
 
-	registry = pw_core_get_registry(pipewire_core, PW_VERSION_REGISTRY, 0);
+	pipewire_registry =
+		pw_core_get_registry(pipewire_core, PW_VERSION_REGISTRY, 0);
+	pw_registry_add_listener(pipewire_registry, hook, callbacks, data);
 
-	spa_zero(registry_listner);
-	pw_registry_add_listener(registry, &registry_listner, callbacks, data);
-
-	pipewire_wait();
-
-	spa_hook_remove(&registry_listner);
-	pw_proxy_destroy((struct pw_proxy *)registry);
-
+	if (call_now)
+		pipewire_wait();
 	pipewire_unlock();
 }
 
-struct pw_stream *pipewire_stream_new(struct pw_properties *props,
-				      struct spa_hook *stream_listener,
+struct pw_stream *pipewire_stream_new(bool capture_sink,
 				      const struct pw_stream_events *callbacks,
 				      void *data)
 {
+	char *capture_sink_str = "false";
+	if (capture_sink)
+		capture_sink_str = "true";
+
+	struct pw_properties *props = pw_properties_new(
+		PW_KEY_APP_NAME, "OBS Studio", PW_KEY_APP_ICON_NAME, "obs",
+		PW_KEY_MEDIA_ROLE, "Production", PW_KEY_MEDIA_TYPE, "Audio",
+		PW_KEY_MEDIA_CATEGORY, "Capture", PW_KEY_STREAM_CAPTURE_SINK,
+		capture_sink_str, NULL);
+
 	pipewire_lock();
 
 	struct pw_stream *stream =
-		pw_stream_new(pipewire_core, "OBS Studio", props);
-	pw_stream_add_listener(stream, stream_listener, callbacks, data);
+		pw_stream_new_simple(pw_thread_loop_get_loop(pipewire_mainloop),
+				     "OBS Studio", props, callbacks, data);
 
 	pipewire_unlock();
 	return stream;
@@ -143,12 +149,10 @@ int pipewire_stream_connect(struct pw_stream *stream,
 	pipewire_lock();
 
 	int res = -1;
-	if (pw_stream_get_state(stream, NULL) == PW_STREAM_STATE_UNCONNECTED) {
-		res = pw_stream_connect(stream, PW_DIRECTION_INPUT, node_id,
+	res = pw_stream_connect(stream, PW_DIRECTION_INPUT, node_id,
 					PW_STREAM_FLAG_AUTOCONNECT |
 						PW_STREAM_FLAG_MAP_BUFFERS,
 					params, 1);
-	}
 
 	pipewire_unlock();
 
@@ -160,9 +164,7 @@ int pipewire_stream_disconnect(struct pw_stream *stream)
 	pipewire_lock();
 
 	int res = -1;
-	if (pw_stream_get_state(stream, NULL) == PW_STREAM_STATE_STREAMING) {
-		res = pw_stream_disconnect(stream);
-	}
+	res = pw_stream_disconnect(stream);
 
 	pipewire_unlock();
 
@@ -173,8 +175,7 @@ void pipewire_stream_destroy(struct pw_stream *stream)
 {
 	pipewire_lock();
 
-	if (pw_stream_get_state(stream, NULL) == PW_STREAM_STATE_STREAMING)
-		pw_stream_disconnect(stream);
+	pw_stream_disconnect(stream);
 	pw_stream_destroy(stream);
 
 	pipewire_unlock();
