@@ -49,7 +49,7 @@ struct pipewire_data {
 	DARRAY(struct pipewire_node) nodes_arr;
 	uint32_t pw_target_id;
 
-	struct spa_hook *registry_listner;
+	struct spa_hook *registry_listener;
 	struct pw_stream *pw_stream;
 
 	uint32_t frame_size;
@@ -302,6 +302,7 @@ static void pipewire_capture_update(void *data, obs_data_t *settings)
 	}
 }
 
+//Registry
 static void pipewire_global_added(void *data, uint32_t id, uint32_t permissions,
 				  const char *type, uint32_t version,
 				  const struct spa_dict *props)
@@ -419,6 +420,7 @@ done:
 const struct pw_registry_events registry_events_enum = {
 	PW_VERSION_REGISTRY_EVENTS, .global = pipewire_global_added,
 	.global_remove = pipewire_global_removed};
+//
 
 static void *
 pipewire_capture_create(obs_data_t *settings, obs_source_t *source,
@@ -439,8 +441,8 @@ pipewire_capture_create(obs_data_t *settings, obs_source_t *source,
 		pipewire_stream_new(capture_sink, &stream_callbacks, lpwa);
 	lpwa->pw_self_id = pw_stream_get_node_id(lpwa->pw_stream);
 
-	lpwa->registry_listner = bzalloc(sizeof(struct spa_hook));
-	pipewire_add_registry_listener(true, lpwa->registry_listner,
+	lpwa->registry_listener = bzalloc(sizeof(struct spa_hook));
+	pipewire_add_registry_listener(true, lpwa->registry_listener,
 				       &registry_events_enum, lpwa);
 
 	pipewire_capture_update(lpwa, settings);
@@ -465,8 +467,8 @@ static void pipewire_capture_destroy(void *data)
 	if (lpwa->pw_stream)
 		pipewire_stream_destroy(lpwa->pw_stream);
 
-	spa_hook_remove(lpwa->registry_listner);
-	bfree(lpwa->registry_listner);
+	spa_hook_remove(lpwa->registry_listener);
+	bfree(lpwa->registry_listener);
 
 	bfree(lpwa);
 
