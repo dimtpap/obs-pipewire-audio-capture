@@ -49,7 +49,8 @@ struct pipewire_data {
 	DARRAY(struct pipewire_node) nodes_arr;
 	uint32_t pw_target_id;
 
-	struct spa_hook *registry_listener;
+	struct spa_hook registry_listener;
+	struct spa_hook stream_listener;
 	struct pw_stream *pw_stream;
 
 	uint32_t frame_size;
@@ -437,12 +438,11 @@ pipewire_capture_create(obs_data_t *settings, obs_source_t *source,
 	if (capture_type == PIPEWIRE_AUDIO_CAPTURE_INPUT)
 		capture_sink = false;
 
-	lpwa->pw_stream =
-		pipewire_stream_new(capture_sink, &stream_callbacks, lpwa);
+	lpwa->pw_stream = pipewire_stream_new(
+		capture_sink, &lpwa->stream_listener, &stream_callbacks, lpwa);
 	lpwa->pw_self_id = pw_stream_get_node_id(lpwa->pw_stream);
 
-	lpwa->registry_listener = bzalloc(sizeof(struct spa_hook));
-	pipewire_add_registry_listener(true, lpwa->registry_listener,
+	pipewire_add_registry_listener(true, &lpwa->registry_listener,
 				       &registry_events_enum, lpwa);
 
 	pipewire_capture_update(lpwa, settings);
@@ -464,11 +464,12 @@ static void pipewire_capture_destroy(void *data)
 
 	da_free(lpwa->nodes_arr);
 
-	if (lpwa->pw_stream)
+	if (lpwa->pw_stream) {
+		spa_hook_remove(&lpwa->stream_listener);
 		pipewire_stream_destroy(lpwa->pw_stream);
+	}
 
-	spa_hook_remove(lpwa->registry_listener);
-	bfree(lpwa->registry_listener);
+	spa_hook_remove(&lpwa->registry_listener);
 
 	bfree(lpwa);
 

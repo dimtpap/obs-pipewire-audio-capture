@@ -61,6 +61,7 @@ void pipewire_add_registry_listener(bool call_now, struct spa_hook *hook, const 
  * in order to get data from it
  */
 struct pw_stream *pipewire_stream_new(bool capture_sink,
+					  struct spa_hook *stream_listener,
 				      const struct pw_stream_events *callbacks,
 				      void *data);
 

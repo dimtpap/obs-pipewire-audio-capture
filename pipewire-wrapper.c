@@ -120,6 +120,7 @@ void pipewire_add_registry_listener(bool call_now, struct spa_hook *hook,
 }
 
 struct pw_stream *pipewire_stream_new(bool capture_sink,
+				      struct spa_hook *stream_listener,
 				      const struct pw_stream_events *callbacks,
 				      void *data)
 {
@@ -136,8 +137,8 @@ struct pw_stream *pipewire_stream_new(bool capture_sink,
 	pipewire_lock();
 
 	struct pw_stream *stream =
-		pw_stream_new_simple(pw_thread_loop_get_loop(pipewire_mainloop),
-				     "OBS Studio", props, callbacks, data);
+		pw_stream_new(pipewire_core, "OBS Studio", props);
+	pw_stream_add_listener(stream, stream_listener, callbacks, data);
 
 	pipewire_unlock();
 	return stream;
@@ -150,9 +151,9 @@ int pipewire_stream_connect(struct pw_stream *stream,
 
 	int res = -1;
 	res = pw_stream_connect(stream, PW_DIRECTION_INPUT, node_id,
-					PW_STREAM_FLAG_AUTOCONNECT |
-						PW_STREAM_FLAG_MAP_BUFFERS,
-					params, 1);
+				PW_STREAM_FLAG_AUTOCONNECT |
+					PW_STREAM_FLAG_MAP_BUFFERS,
+				params, 1);
 
 	pipewire_unlock();
 
