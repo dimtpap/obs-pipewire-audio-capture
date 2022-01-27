@@ -129,9 +129,9 @@ struct pw_stream *pipewire_stream_new(bool capture_sink,
 
 	struct pw_properties *props = pw_properties_new(
 		PW_KEY_APP_NAME, "OBS Studio", PW_KEY_APP_ICON_NAME, "obs",
-		PW_KEY_MEDIA_ROLE, "Production", PW_KEY_MEDIA_TYPE, "Audio",
-		PW_KEY_MEDIA_CATEGORY, "Capture", PW_KEY_STREAM_CAPTURE_SINK,
-		capture_sink_str, NULL);
+		PW_KEY_NODE_NAME, "OBS Studio", PW_KEY_MEDIA_ROLE, "Production",
+		PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Capture",
+		PW_KEY_STREAM_CAPTURE_SINK, capture_sink_str, NULL);
 
 	pipewire_lock();
 
