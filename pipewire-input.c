@@ -50,6 +50,7 @@ struct pipewire_data {
 	uint32_t pw_target_id;
 
 	struct spa_hook registry_listener;
+	uint32_t registry_proxy_id;
 	struct spa_hook stream_listener;
 	struct pw_stream *pw_stream;
 
@@ -442,8 +443,8 @@ pipewire_capture_create(obs_data_t *settings, obs_source_t *source,
 		capture_sink, &lpwa->stream_listener, &stream_callbacks, lpwa);
 	lpwa->pw_self_id = pw_stream_get_node_id(lpwa->pw_stream);
 
-	pipewire_add_registry_listener(true, &lpwa->registry_listener,
-				       &registry_events_enum, lpwa);
+	lpwa->registry_proxy_id = pipewire_add_registry_listener(
+		true, &lpwa->registry_listener, &registry_events_enum, lpwa);
 
 	pipewire_capture_update(lpwa, settings);
 
@@ -469,6 +470,7 @@ static void pipewire_capture_destroy(void *data)
 	}
 
 	spa_hook_remove(&lpwa->registry_listener);
+	pipewire_proxy_destroy(lpwa->registry_proxy_id);
 
 	bfree(lpwa);
 

@@ -19,15 +19,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "pipewire-wrapper.h"
 
 #include <pipewire/pipewire.h>
-#include <pipewire/global.h>
-#include <spa/param/audio/format-utils.h>
-#include <spa/param/audio/type-info.h>
 
 static uint32_t pipewire_refs = 0;
 static struct pw_thread_loop *pipewire_mainloop = NULL;
 static struct pw_context *pipewire_context = NULL;
 static struct pw_core *pipewire_core = NULL;
-static struct pw_registry *pipewire_registry = NULL;
 
 void pipewire_init()
 {
@@ -49,9 +45,6 @@ void pipewire_init()
 
 		pipewire_core = pw_context_connect(pipewire_context, NULL, 0);
 
-		pipewire_registry = pw_core_get_registry(
-			pipewire_core, PW_VERSION_REGISTRY, 0);
-
 		pipewire_unlock();
 	}
 	pipewire_refs++;
@@ -62,9 +55,6 @@ void pipewire_unref()
 	if (--pipewire_refs == 0) {
 		pipewire_lock();
 
-		if (pipewire_registry) {
-			pw_proxy_destroy((struct pw_proxy *)pipewire_registry);
-		}
 		if (pipewire_core) {
 			pw_core_disconnect(pipewire_core);
 		}
@@ -104,19 +94,27 @@ void pipewire_continue()
 	pw_thread_loop_signal(pipewire_mainloop, false);
 }
 
-void pipewire_add_registry_listener(bool call_now, struct spa_hook *hook,
-				    const struct pw_registry_events *callbacks,
-				    void *data)
+uint32_t
+pipewire_add_registry_listener(bool call_now, struct spa_hook *hook,
+			       const struct pw_registry_events *callbacks,
+			       void *data)
 {
 	pipewire_lock();
 
-	pipewire_registry =
+	struct pw_registry *pipewire_registry =
 		pw_core_get_registry(pipewire_core, PW_VERSION_REGISTRY, 0);
 	pw_registry_add_listener(pipewire_registry, hook, callbacks, data);
 
 	if (call_now)
 		pipewire_wait();
 	pipewire_unlock();
+
+	return pw_proxy_get_id((struct pw_proxy *)pipewire_registry);
+}
+
+void pipewire_proxy_destroy(uint32_t id)
+{
+	pw_proxy_destroy(pw_core_find_proxy(pipewire_core, id));
 }
 
 struct pw_stream *pipewire_stream_new(bool capture_sink,

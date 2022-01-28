@@ -53,8 +53,14 @@ void pipewire_continue();
 /**
  * Add listeners to the PipeWire registry
  * @param call_now Call the callbacks now
+ * @returns The proxy id of the registry
  */
-void pipewire_add_registry_listener(bool call_now, struct spa_hook *hook, const struct pw_registry_events *callbacks, void *data);
+uint32_t pipewire_add_registry_listener(bool call_now, struct spa_hook *hook, const struct pw_registry_events *callbacks, void *data);
+
+/**
+ * Destroy a PipeWire proxy
+ **/
+void pipewire_proxy_destroy(uint32_t id);
 
 /**
  * Crate a PipeWire stream that can be connected to a node later
