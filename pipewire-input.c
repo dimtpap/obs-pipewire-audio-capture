@@ -459,7 +459,6 @@ static void pipewire_capture_destroy(void *data)
 			sizeof(*lpwa->nodes_arr.array), &lpwa->nodes_arr.da, i);
 		bfree((void *)node->friendly_name);
 		bfree((void *)node->name);
-		da_erase(lpwa->nodes_arr, i);
 	}
 
 	da_free(lpwa->nodes_arr);
