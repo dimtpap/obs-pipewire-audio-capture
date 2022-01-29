@@ -208,40 +208,6 @@ const struct pw_stream_events stream_callbacks = {
 	.process = on_stream_process,
 	.param_changed = on_stream_param_changed,
 };
-//
-
-//Properties
-static obs_properties_t *pipewire_capture_properties(void *data)
-{
-	struct pipewire_data *lpwa = data;
-
-	const char *capture_type;
-	capture_type = obs_module_text("Device");
-	if (lpwa->capture_type == PIPEWIRE_AUDIO_CAPTURE_APPLICATION)
-		capture_type = obs_module_text("Application");
-
-	obs_properties_t *p = obs_properties_create();
-	obs_property_t *devices_list = obs_properties_add_list(
-		p, LPWA_TARGET_NAME, capture_type, OBS_COMBO_TYPE_LIST,
-		OBS_COMBO_FORMAT_STRING);
-
-	if (lpwa->capture_type != PIPEWIRE_AUDIO_CAPTURE_APPLICATION)
-		obs_property_list_add_string(devices_list, "Default", "ANY");
-
-	for (size_t i = 0; i < lpwa->nodes_arr.num; i++) {
-		struct pipewire_node *node = darray_item(
-			sizeof(*lpwa->nodes_arr.array), &lpwa->nodes_arr.da, i);
-		obs_property_list_add_string(devices_list, node->friendly_name,
-					     node->name);
-	}
-	return p;
-}
-
-static void pipewire_capture_defaults(obs_data_t *settings)
-{
-	obs_data_set_default_string(settings, LPWA_TARGET_NAME, "ANY");
-}
-//
 
 static void pipewire_start_streaming(void *data, uint32_t node_id)
 {
@@ -269,44 +235,7 @@ static void pipewire_start_streaming(void *data, uint32_t node_id)
 	if (pipewire_stream_connect(lpwa->pw_stream, params, node_id) == 0)
 		lpwa->pw_target_id = node_id;
 }
-
-static void pipewire_capture_update(void *data, obs_data_t *settings)
-{
-	struct pipewire_data *lpwa = data;
-
-
-	const char *new_node_name;
-
-	new_node_name = obs_data_get_string(settings, LPWA_TARGET_NAME);
-
-	if (!new_node_name)
-		return;
-
-	lpwa->pw_target_name = new_node_name;
-	
-	if (!lpwa->nodes_arr.num)
-		return;
-	
-	uint32_t new_node_id;
-	if (strcmp(new_node_name, "ANY") == 0) {
-		new_node_id = PW_ID_ANY;
-		lpwa->pw_target_id = 0;
-	} else {
-		struct pipewire_node *new_node =
-			get_node_by_name(new_node_name, &lpwa->nodes_arr);
-
-		if (!new_node)
-			return;
-		new_node_id = new_node->id;
-
-		if (new_node_id == lpwa->pw_target_id &&
-		    pw_stream_get_state(lpwa->pw_stream, NULL) !=
-			    PW_STREAM_STATE_UNCONNECTED) {
-			return;
-		}
-	}
-	pipewire_start_streaming(lpwa, new_node_id);
-}
+//
 
 //Registry
 static void pipewire_global_added(void *data, uint32_t id, uint32_t permissions,
@@ -425,6 +354,77 @@ const struct pw_registry_events registry_events_enum = {
 	PW_VERSION_REGISTRY_EVENTS, .global = pipewire_global_added,
 	.global_remove = pipewire_global_removed};
 //
+
+//Properties
+static obs_properties_t *pipewire_capture_properties(void *data)
+{
+	struct pipewire_data *lpwa = data;
+
+	const char *capture_type;
+	capture_type = obs_module_text("Device");
+	if (lpwa->capture_type == PIPEWIRE_AUDIO_CAPTURE_APPLICATION)
+		capture_type = obs_module_text("Application");
+
+	obs_properties_t *p = obs_properties_create();
+	obs_property_t *devices_list = obs_properties_add_list(
+		p, LPWA_TARGET_NAME, capture_type, OBS_COMBO_TYPE_LIST,
+		OBS_COMBO_FORMAT_STRING);
+
+	if (lpwa->capture_type != PIPEWIRE_AUDIO_CAPTURE_APPLICATION)
+		obs_property_list_add_string(devices_list, "Default", "ANY");
+
+	for (size_t i = 0; i < lpwa->nodes_arr.num; i++) {
+		struct pipewire_node *node = darray_item(
+			sizeof(*lpwa->nodes_arr.array), &lpwa->nodes_arr.da, i);
+		obs_property_list_add_string(devices_list, node->friendly_name,
+					     node->name);
+	}
+	return p;
+}
+
+static void pipewire_capture_defaults(obs_data_t *settings)
+{
+	obs_data_set_default_string(settings, LPWA_TARGET_NAME, "ANY");
+}
+//
+
+static void pipewire_capture_update(void *data, obs_data_t *settings)
+{
+	struct pipewire_data *lpwa = data;
+
+
+	const char *new_node_name;
+
+	new_node_name = obs_data_get_string(settings, LPWA_TARGET_NAME);
+
+	if (!new_node_name)
+		return;
+
+	lpwa->pw_target_name = new_node_name;
+	
+	if (!lpwa->nodes_arr.num)
+		return;
+	
+	uint32_t new_node_id;
+	if (strcmp(new_node_name, "ANY") == 0) {
+		new_node_id = PW_ID_ANY;
+		lpwa->pw_target_id = 0;
+	} else {
+		struct pipewire_node *new_node =
+			get_node_by_name(new_node_name, &lpwa->nodes_arr);
+
+		if (!new_node)
+			return;
+		new_node_id = new_node->id;
+
+		if (new_node_id == lpwa->pw_target_id &&
+		    pw_stream_get_state(lpwa->pw_stream, NULL) !=
+			    PW_STREAM_STATE_UNCONNECTED) {
+			return;
+		}
+	}
+	pipewire_start_streaming(lpwa, new_node_id);
+}
 
 static void *
 pipewire_capture_create(obs_data_t *settings, obs_source_t *source,
