@@ -48,6 +48,7 @@ struct pipewire_data {
 
 	DARRAY(struct pipewire_node) nodes_arr;
 	uint32_t pw_target_id;
+	const char *pw_target_name;
 
 	struct spa_hook registry_listener;
 	uint32_t registry_proxy_id;
@@ -162,7 +163,7 @@ static void on_stream_process(void *data)
 	b = pw_stream_dequeue_buffer(lpwa->pw_stream);
 
 	if (!b)
-		goto done;
+		return;
 
 	buf = b->buffer;
 
@@ -182,16 +183,13 @@ static void on_stream_process(void *data)
 
 queue:
 	pw_stream_queue_buffer(lpwa->pw_stream, b);
-
-done:
-	pipewire_continue();
 }
 
 static void on_stream_param_changed(void *data, uint32_t id,
 				    const struct spa_pod *param)
 {
 	if (!param || id != SPA_PARAM_Format)
-		goto done;
+		return;
 
 	struct pipewire_data *lpwa = data;
 
@@ -203,9 +201,6 @@ static void on_stream_param_changed(void *data, uint32_t id,
 	lpwa->format = spa_to_obs_audio_format(audio_info.format);
 	lpwa->frame_size =
 		calculate_frame_size(lpwa->format, audio_info.channels);
-
-done:
-	pipewire_continue();
 }
 
 const struct pw_stream_events stream_callbacks = {
@@ -248,6 +243,33 @@ static void pipewire_capture_defaults(obs_data_t *settings)
 }
 //
 
+static void pipewire_start_streaming(void *data, uint32_t node_id)
+{
+	struct pipewire_data *lpwa = data;
+
+	if (!lpwa->pw_stream)
+		return;
+
+	uint8_t buffer[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+
+	const struct spa_pod *params[1];
+	params[0] = spa_pod_builder_add_object(
+		&b, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
+		SPA_FORMAT_mediaType, SPA_POD_Id(SPA_MEDIA_TYPE_audio),
+		SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
+		SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(0, 1, 8),
+		SPA_FORMAT_AUDIO_format,
+		SPA_POD_CHOICE_ENUM_Id(
+			5, SPA_AUDIO_FORMAT_UNKNOWN, SPA_AUDIO_FORMAT_U8,
+			SPA_AUDIO_FORMAT_S16_LE, SPA_AUDIO_FORMAT_S32_LE,
+			SPA_AUDIO_FORMAT_F32_LE));
+
+	pipewire_stream_disconnect(lpwa->pw_stream);
+	if (pipewire_stream_connect(lpwa->pw_stream, params, node_id) == 0)
+		lpwa->pw_target_id = node_id;
+}
+
 static void pipewire_capture_update(void *data, obs_data_t *settings)
 {
 	struct pipewire_data *lpwa = data;
@@ -256,13 +278,15 @@ static void pipewire_capture_update(void *data, obs_data_t *settings)
 		return;
 
 	const char *new_node_name;
-	uint32_t new_node_id = 0;
 
 	new_node_name = obs_data_get_string(settings, LPWA_TARGET_NAME);
 
 	if (!new_node_name)
 		return;
 
+	lpwa->pw_target_name = new_node_name;
+	
+	uint32_t new_node_id;
 	if (strcmp(new_node_name, "ANY") == 0) {
 		new_node_id = PW_ID_ANY;
 		lpwa->pw_target_id = 0;
@@ -274,34 +298,13 @@ static void pipewire_capture_update(void *data, obs_data_t *settings)
 			return;
 		new_node_id = new_node->id;
 
-		if (new_node_id == lpwa->pw_target_id)
+		if (new_node_id == lpwa->pw_target_id &&
+		    pw_stream_get_state(lpwa->pw_stream, NULL) !=
+			    PW_STREAM_STATE_UNCONNECTED) {
 			return;
-		lpwa->pw_target_id = new_node_id;
+		}
 	}
-
-	if (lpwa->pw_stream) {
-		uint8_t buffer[1024];
-		struct spa_pod_builder b =
-			SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-
-		const struct spa_pod *params[1];
-		params[0] = spa_pod_builder_add_object(
-			&b, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-			SPA_FORMAT_mediaType, SPA_POD_Id(SPA_MEDIA_TYPE_audio),
-			SPA_FORMAT_mediaSubtype,
-			SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-			SPA_FORMAT_AUDIO_channels,
-			SPA_POD_CHOICE_RANGE_Int(0, 1, 8),
-			SPA_FORMAT_AUDIO_format,
-			SPA_POD_CHOICE_ENUM_Id(5, SPA_AUDIO_FORMAT_UNKNOWN,
-					       SPA_AUDIO_FORMAT_U8,
-					       SPA_AUDIO_FORMAT_S16_LE,
-					       SPA_AUDIO_FORMAT_S32_LE,
-					       SPA_AUDIO_FORMAT_F32_LE));
-
-		pipewire_stream_disconnect(lpwa->pw_stream);
-		pipewire_stream_connect(lpwa->pw_stream, params, new_node_id);
-	}
+	pipewire_start_streaming(lpwa, new_node_id);
 }
 
 //Registry
@@ -366,16 +369,11 @@ static void pipewire_global_added(void *data, uint32_t id, uint32_t permissions,
 			if (lpwa->pw_stream &&
 			    pw_stream_get_state(lpwa->pw_stream, NULL) ==
 				    PW_STREAM_STATE_UNCONNECTED) {
-				obs_data_t *settings =
-					obs_source_get_settings(lpwa->context);
-				const char *target_name = obs_data_get_string(
-					settings, LPWA_TARGET_NAME);
 
-				if (target_name &&
-				    strcmp(target_name, node->name) == 0) {
-					pipewire_capture_update(lpwa, settings);
+				if (lpwa->pw_target_name &&
+				    strcmp(lpwa->pw_target_name, node->name) == 0) {
+					pipewire_start_streaming(lpwa, id);
 				}
-				obs_data_release(settings);
 			}
 		}
 	}
@@ -410,9 +408,12 @@ static void pipewire_global_removed(void *data, uint32_t id)
 	(For example, Firefox runs a new stream for every tab)*/
 	if (id == lpwa->pw_target_id) {
 		pipewire_stream_disconnect(lpwa->pw_stream);
-		obs_data_t *settings = obs_source_get_settings(lpwa->context);
-		pipewire_capture_update(lpwa, settings);
-		obs_data_release(settings);
+		lpwa->pw_target_id = 0;
+
+		struct pipewire_node *new_node = get_node_by_name(
+			lpwa->pw_target_name, &lpwa->nodes_arr);
+		if (new_node)
+			pipewire_start_streaming(lpwa, new_node->id);
 	}
 
 done:
