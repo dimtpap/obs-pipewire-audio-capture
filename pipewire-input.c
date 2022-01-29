@@ -274,8 +274,6 @@ static void pipewire_capture_update(void *data, obs_data_t *settings)
 {
 	struct pipewire_data *lpwa = data;
 
-	if (!lpwa->nodes_arr.num)
-		return;
 
 	const char *new_node_name;
 
@@ -285,6 +283,9 @@ static void pipewire_capture_update(void *data, obs_data_t *settings)
 		return;
 
 	lpwa->pw_target_name = new_node_name;
+	
+	if (!lpwa->nodes_arr.num)
+		return;
 	
 	uint32_t new_node_id;
 	if (strcmp(new_node_name, "ANY") == 0) {
