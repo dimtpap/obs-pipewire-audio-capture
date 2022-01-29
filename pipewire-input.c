@@ -44,8 +44,6 @@ struct pipewire_data {
 
 	enum pipewire_audio_capture_type capture_type;
 
-	uint32_t pw_self_id;
-
 	DARRAY(struct pipewire_node) nodes_arr;
 	uint32_t pw_target_id;
 	const char *pw_target_name;
@@ -250,9 +248,6 @@ static void pipewire_global_added(void *data, uint32_t id, uint32_t permissions,
 	struct pipewire_data *lpwa = data;
 
 	if (strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
-		if (id == lpwa->pw_self_id)
-			goto done;
-
 		const char *media_class =
 			spa_dict_lookup(props, PW_KEY_MEDIA_CLASS);
 		if (!media_class)
@@ -315,8 +310,6 @@ done:
 static void pipewire_global_removed(void *data, uint32_t id)
 {
 	struct pipewire_data *lpwa = data;
-	if (id == lpwa->pw_self_id)
-		goto done;
 
 	size_t idx = 0;
 
@@ -443,7 +436,6 @@ pipewire_capture_create(obs_data_t *settings, obs_source_t *source,
 
 	lpwa->pw_stream = pipewire_stream_new(
 		capture_sink, &lpwa->stream_listener, &stream_callbacks, lpwa);
-	lpwa->pw_self_id = pw_stream_get_node_id(lpwa->pw_stream);
 
 	lpwa->registry_proxy_id = pipewire_add_registry_listener(
 		true, &lpwa->registry_listener, &registry_events_enum, lpwa);
