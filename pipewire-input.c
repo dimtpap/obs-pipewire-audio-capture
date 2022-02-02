@@ -438,7 +438,9 @@ pipewire_capture_create(obs_data_t *settings, obs_source_t *source,
 	lpwa->capture_type = capture_type;
 	da_init(lpwa->nodes_arr);
 
-	obs_data_set_int(settings, LPWA_TARGET_ID, 0);
+	if (obs_data_get_int(settings, LPWA_TARGET_ID) != PW_ID_ANY)
+		obs_data_set_int(settings, LPWA_TARGET_ID, 0);
+
 	lpwa->pw_target_name =
 		bstrdup(obs_data_get_string(settings, LPWA_TARGET_NAME));
 
