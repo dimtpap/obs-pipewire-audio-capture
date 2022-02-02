@@ -25,6 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "pipewire-wrapper.h"
 
+#define LPWA_TARGET_ID "LPWA_TARGET_ID"
 #define LPWA_TARGET_NAME "LPWA_TARGET_NAME"
 
 enum pipewire_audio_capture_type {
@@ -79,7 +80,8 @@ get_node_and_idx_by_id(uint32_t id, DARRAY(struct pipewire_node) * nodes_arr,
 		struct pipewire_node *node = darray_item(
 			sizeof(*nodes_arr->array), &nodes_arr->da, i);
 		if (node && node->id == id) {
-			*idx = i;
+			if (idx)
+				*idx = i;
 			return node;
 		}
 	}
@@ -296,7 +298,8 @@ static void pipewire_global_added(void *data, uint32_t id, uint32_t permissions,
 				    PW_STREAM_STATE_UNCONNECTED) {
 
 				if (lpwa->pw_target_name &&
-				    strcmp(lpwa->pw_target_name, node->name) == 0) {
+				    strcmp(lpwa->pw_target_name, node->name) ==
+					    0) {
 					pipewire_start_streaming(lpwa, id);
 				}
 			}
@@ -360,24 +363,24 @@ static obs_properties_t *pipewire_capture_properties(void *data)
 
 	obs_properties_t *p = obs_properties_create();
 	obs_property_t *devices_list = obs_properties_add_list(
-		p, LPWA_TARGET_NAME, capture_type, OBS_COMBO_TYPE_LIST,
-		OBS_COMBO_FORMAT_STRING);
+		p, LPWA_TARGET_ID, capture_type, OBS_COMBO_TYPE_LIST,
+		OBS_COMBO_FORMAT_INT);
 
 	if (lpwa->capture_type != PIPEWIRE_AUDIO_CAPTURE_APPLICATION)
-		obs_property_list_add_string(devices_list, "Default", "ANY");
+		obs_property_list_add_int(devices_list, "Default", PW_ID_ANY);
 
 	for (size_t i = 0; i < lpwa->nodes_arr.num; i++) {
 		struct pipewire_node *node = darray_item(
 			sizeof(*lpwa->nodes_arr.array), &lpwa->nodes_arr.da, i);
-		obs_property_list_add_string(devices_list, node->friendly_name,
-					     node->name);
+		obs_property_list_add_int(devices_list, node->friendly_name,
+					  node->id);
 	}
 	return p;
 }
 
 static void pipewire_capture_defaults(obs_data_t *settings)
 {
-	obs_data_set_default_string(settings, LPWA_TARGET_NAME, "ANY");
+	obs_data_set_default_int(settings, LPWA_TARGET_ID, PW_ID_ANY);
 }
 //
 
@@ -385,37 +388,44 @@ static void pipewire_capture_update(void *data, obs_data_t *settings)
 {
 	struct pipewire_data *lpwa = data;
 
+	uint32_t new_node_id = obs_data_get_int(settings, LPWA_TARGET_ID);
 
-	const char *new_node_name;
-
-	new_node_name = obs_data_get_string(settings, LPWA_TARGET_NAME);
-
-	if (!new_node_name)
+	if (new_node_id == PW_ID_ANY) {
+		pipewire_start_streaming(lpwa, new_node_id);
 		return;
+	}
 
-	lpwa->pw_target_name = new_node_name;
-	
-	if (!lpwa->nodes_arr.num)
-		return;
-	
-	uint32_t new_node_id;
-	if (strcmp(new_node_name, "ANY") == 0) {
-		new_node_id = PW_ID_ANY;
-		lpwa->pw_target_id = 0;
+	struct pipewire_node *new_node;
+	if (new_node_id) {
+		new_node = get_node_and_idx_by_id(new_node_id, &lpwa->nodes_arr,
+						  NULL);
 	} else {
-		struct pipewire_node *new_node =
-			get_node_by_name(new_node_name, &lpwa->nodes_arr);
+		const char *set_node_name =
+			obs_data_get_string(settings, LPWA_TARGET_NAME);
 
-		if (!new_node)
+		if (!set_node_name)
 			return;
+
+		new_node = get_node_by_name(set_node_name, &lpwa->nodes_arr);
+	}
+
+	if (new_node) {
 		new_node_id = new_node->id;
 
-		if (new_node_id == lpwa->pw_target_id &&
-		    pw_stream_get_state(lpwa->pw_stream, NULL) !=
-			    PW_STREAM_STATE_UNCONNECTED) {
-			return;
-		}
+		if (lpwa->pw_target_name)
+			bfree((void *)lpwa->pw_target_name);
+		lpwa->pw_target_name = bstrdup(new_node->name);
+
+		obs_data_set_string(settings, LPWA_TARGET_NAME, new_node->name);
+	} else
+		return;
+
+	if (new_node_id == lpwa->pw_target_id &&
+	    pw_stream_get_state(lpwa->pw_stream, NULL) !=
+		    PW_STREAM_STATE_UNCONNECTED) {
+		return;
 	}
+
 	pipewire_start_streaming(lpwa, new_node_id);
 }
 
@@ -428,11 +438,13 @@ pipewire_capture_create(obs_data_t *settings, obs_source_t *source,
 	lpwa->capture_type = capture_type;
 	da_init(lpwa->nodes_arr);
 
+	obs_data_set_int(settings, LPWA_TARGET_ID, 0);
+	lpwa->pw_target_name =
+		bstrdup(obs_data_get_string(settings, LPWA_TARGET_NAME));
+
 	pipewire_init();
 
-	bool capture_sink = true;
-	if (capture_type == PIPEWIRE_AUDIO_CAPTURE_INPUT)
-		capture_sink = false;
+	bool capture_sink = capture_type != PIPEWIRE_AUDIO_CAPTURE_INPUT;
 
 	lpwa->pw_stream = pipewire_stream_new(
 		capture_sink, &lpwa->stream_listener, &stream_callbacks, lpwa);
@@ -448,6 +460,9 @@ pipewire_capture_create(obs_data_t *settings, obs_source_t *source,
 static void pipewire_capture_destroy(void *data)
 {
 	struct pipewire_data *lpwa = data;
+
+	if (lpwa->pw_target_name)
+		bfree((void *)lpwa->pw_target_name);
 
 	for (size_t i = 0; i < lpwa->nodes_arr.num; i++) {
 		struct pipewire_node *node = darray_item(

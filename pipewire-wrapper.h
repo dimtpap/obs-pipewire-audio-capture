@@ -55,7 +55,10 @@ void pipewire_continue();
  * @param call_now Call the callbacks now
  * @returns The proxy id of the registry
  */
-uint32_t pipewire_add_registry_listener(bool call_now, struct spa_hook *hook, const struct pw_registry_events *callbacks, void *data);
+uint32_t
+pipewire_add_registry_listener(bool call_now, struct spa_hook *hook,
+			       const struct pw_registry_events *callbacks,
+			       void *data);
 
 /**
  * Destroy a PipeWire proxy
@@ -67,7 +70,7 @@ void pipewire_proxy_destroy(uint32_t id);
  * in order to get data from it
  */
 struct pw_stream *pipewire_stream_new(bool capture_sink,
-					  struct spa_hook *stream_listener,
+				      struct spa_hook *stream_listener,
 				      const struct pw_stream_events *callbacks,
 				      void *data);
 
