@@ -4,10 +4,8 @@
 This plugin adds 3 sources for capturing outputs, inputs and applications using PipeWire  
 There is no real need for this currently, `pipewire-pulse` works perfectly with OBS's PulseAudio implementations
 
-## Known issues
-- This currently conflicts with the PipeWire screen/window capturing - If you have sources from both and you remove them in a session, 
-it will crash (most likely due to both calling `pw_deinit()`)
-- Selecting an application that is two or more times in the list (e.g. Firefox tabs) only connects to the first one
+## Issues
+- This currently conflicts with the PipeWire screen/window capturing. Expect crashes if you're using sources from both
 - Generally there needs to be more error handling and polishing
 
 Pre-built binaries are available in the [releases](https://github.com/Qufyy/obs-pipewire-audio-capture/releases)
