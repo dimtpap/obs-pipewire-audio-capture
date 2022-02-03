@@ -356,10 +356,10 @@ static obs_properties_t *pipewire_capture_properties(void *data)
 {
 	struct pipewire_data *lpwa = data;
 
-	const char *capture_type;
-	capture_type = obs_module_text("Device");
-	if (lpwa->capture_type == PIPEWIRE_AUDIO_CAPTURE_APPLICATION)
-		capture_type = obs_module_text("Application");
+	const char *capture_type =
+		lpwa->capture_type != PIPEWIRE_AUDIO_CAPTURE_APPLICATION
+			? obs_module_text("Device")
+			: obs_module_text("Application");
 
 	obs_properties_t *p = obs_properties_create();
 	obs_property_t *devices_list = obs_properties_add_list(

@@ -122,9 +122,7 @@ struct pw_stream *pipewire_stream_new(bool capture_sink,
 				      const struct pw_stream_events *callbacks,
 				      void *data)
 {
-	char *capture_sink_str = "false";
-	if (capture_sink)
-		capture_sink_str = "true";
+	char *capture_sink_str = capture_sink ? "true" : "false";
 
 	struct pw_properties *props = pw_properties_new(
 		PW_KEY_APP_NAME, "OBS Studio", PW_KEY_APP_ICON_NAME, "obs",
