@@ -18,7 +18,7 @@ if(ENABLE_PIPEWIRE)
   )
 
 	set(linux-pipewire-audio_SOURCES
-    linux-pipewire.c
+    linux-pipewire-audio.c
     pipewire-input.c
     pipewire-wrapper.c
   )
