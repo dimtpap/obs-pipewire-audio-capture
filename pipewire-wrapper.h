@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2021 by Dimitris Papaioannou <jimpap31@outlook.com.gr>
+Copyright (C) 2021-2022 by Dimitris Papaioannou <jimpap31@outlook.com.gr>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 void pipewire_init();
 
 /**
- * Decrease the PipeWire reference count.
+ * Decrease the PipeWire reference count
  * If it reaches 0 destroy the PipeWire context and threadloop
  */
 void pipewire_unref();
@@ -51,11 +51,11 @@ void pipewire_wait();
 void pipewire_continue();
 
 /**
- * Add listeners to the PipeWire registry
+ * Add a listener to a new PipeWire registry
  * @param call_now Call the callbacks now
- * @returns The proxy id of the registry
+ * @returns The new registry proxy, needs to be destroyed when no longer needed
  */
-uint32_t
+struct pw_registry *
 pipewire_add_registry_listener(bool call_now, struct spa_hook *hook,
 			       const struct pw_registry_events *callbacks,
 			       void *data);
@@ -63,26 +63,27 @@ pipewire_add_registry_listener(bool call_now, struct spa_hook *hook,
 /**
  * Destroy a PipeWire proxy
  **/
-void pipewire_proxy_destroy(uint32_t id);
+void pipewire_proxy_destroy(struct pw_proxy *proxy);
 
 /**
- * Crate a PipeWire stream that can be connected to a node later
- * in order to get data from it
+ * Crate and add a listener to a PipeWire stream
+ * that can be connected to a node later in order to get data from it
  */
-struct pw_stream *pipewire_stream_new(bool capture_sink,
+struct pw_stream *pipewire_stream_new(struct pw_properties *props,
 				      struct spa_hook *stream_listener,
 				      const struct pw_stream_events *callbacks,
 				      void *data);
 
 /**
- * Connect a stream to a PipeWire node.
+ * Connect a stream to a PipeWire node
  * @returns 0 on success
  */
 int pipewire_stream_connect(struct pw_stream *stream,
-			    const struct spa_pod **params,
-			    unsigned int node_id);
+			    enum spa_direction direction, uint32_t target_id,
+			    enum pw_stream_flags flags,
+			    const struct spa_pod **params, uint32_t n_params);
 /**
- * Disconnect a stream from a PipeWire node.
+ * Disconnect a stream from a PipeWire node
  * @returns 0 on success
  */
 int pipewire_stream_disconnect(struct pw_stream *stream);

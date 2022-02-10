@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2021 by Dimitris Papaioannou <jimpap31@outlook.com.gr>
+Copyright (C) 2021-2022 by Dimitris Papaioannou <jimpap31@outlook.com.gr>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -49,9 +49,9 @@ struct pipewire_data {
 	uint32_t pw_target_id;
 	const char *pw_target_name;
 
-	struct spa_hook registry_listener;
-	uint32_t registry_proxy_id;
-	struct spa_hook stream_listener;
+	struct spa_hook pw_registry_listener;
+	struct pw_registry *pw_registry_proxy;
+	struct spa_hook pw_stream_listener;
 	struct pw_stream *pw_stream;
 
 	uint32_t frame_size;
@@ -153,7 +153,7 @@ static inline uint64_t get_sample_time(uint32_t frames, uint32_t sample_rate)
 }
 //
 
-//PipeWire Stream stuff
+//Stream
 static void on_stream_process(void *data)
 {
 	struct pipewire_data *lpwa = data;
@@ -232,7 +232,10 @@ static void pipewire_start_streaming(void *data, uint32_t node_id)
 			SPA_AUDIO_FORMAT_F32_LE));
 
 	pipewire_stream_disconnect(lpwa->pw_stream);
-	if (pipewire_stream_connect(lpwa->pw_stream, params, node_id) == 0)
+	if (pipewire_stream_connect(
+		    lpwa->pw_stream, PW_DIRECTION_INPUT, node_id,
+		    PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS,
+		    params, 1) == 0)
 		lpwa->pw_target_id = node_id;
 }
 //
@@ -446,13 +449,20 @@ pipewire_capture_create(obs_data_t *settings, obs_source_t *source,
 
 	pipewire_init();
 
-	bool capture_sink = capture_type != PIPEWIRE_AUDIO_CAPTURE_INPUT;
+	char *capture_sink =
+		capture_type != PIPEWIRE_AUDIO_CAPTURE_INPUT ? "true" : "false";
 
-	lpwa->pw_stream = pipewire_stream_new(
-		capture_sink, &lpwa->stream_listener, &stream_callbacks, lpwa);
+	struct pw_properties *props = pw_properties_new(
+		PW_KEY_APP_NAME, "OBS Studio", PW_KEY_APP_ICON_NAME, "obs",
+		PW_KEY_NODE_NAME, "OBS Studio", PW_KEY_MEDIA_ROLE, "Production",
+		PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Capture",
+		PW_KEY_STREAM_CAPTURE_SINK, capture_sink, NULL);
 
-	lpwa->registry_proxy_id = pipewire_add_registry_listener(
-		true, &lpwa->registry_listener, &registry_events_enum, lpwa);
+	lpwa->pw_stream = pipewire_stream_new(props, &lpwa->pw_stream_listener,
+					      &stream_callbacks, lpwa);
+
+	lpwa->pw_registry_proxy = pipewire_add_registry_listener(
+		true, &lpwa->pw_registry_listener, &registry_events_enum, lpwa);
 
 	pipewire_capture_update(lpwa, settings);
 
@@ -476,12 +486,12 @@ static void pipewire_capture_destroy(void *data)
 	da_free(lpwa->nodes_arr);
 
 	if (lpwa->pw_stream) {
-		spa_hook_remove(&lpwa->stream_listener);
+		spa_hook_remove(&lpwa->pw_stream_listener);
 		pipewire_stream_destroy(lpwa->pw_stream);
 	}
 
-	spa_hook_remove(&lpwa->registry_listener);
-	pipewire_proxy_destroy(lpwa->registry_proxy_id);
+	spa_hook_remove(&lpwa->pw_registry_listener);
+	pipewire_proxy_destroy((struct pw_proxy *)lpwa->pw_registry_proxy);
 
 	bfree(lpwa);
 

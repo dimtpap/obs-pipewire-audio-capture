@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2021 by Dimitris Papaioannou <jimpap31@outlook.com.gr>
+Copyright (C) 2021-2022 by Dimitris Papaioannou <jimpap31@outlook.com.gr>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -94,7 +94,7 @@ void pipewire_continue()
 	pw_thread_loop_signal(pipewire_mainloop, false);
 }
 
-uint32_t
+struct pw_registry *
 pipewire_add_registry_listener(bool call_now, struct spa_hook *hook,
 			       const struct pw_registry_events *callbacks,
 			       void *data)
@@ -109,27 +109,19 @@ pipewire_add_registry_listener(bool call_now, struct spa_hook *hook,
 		pipewire_wait();
 	pipewire_unlock();
 
-	return pw_proxy_get_id((struct pw_proxy *)pipewire_registry);
+	return pipewire_registry;
 }
 
-void pipewire_proxy_destroy(uint32_t id)
+void pipewire_proxy_destroy(struct pw_proxy *proxy)
 {
-	pw_proxy_destroy(pw_core_find_proxy(pipewire_core, id));
+	pw_proxy_destroy(proxy);
 }
 
-struct pw_stream *pipewire_stream_new(bool capture_sink,
+struct pw_stream *pipewire_stream_new(struct pw_properties *props,
 				      struct spa_hook *stream_listener,
 				      const struct pw_stream_events *callbacks,
 				      void *data)
 {
-	char *capture_sink_str = capture_sink ? "true" : "false";
-
-	struct pw_properties *props = pw_properties_new(
-		PW_KEY_APP_NAME, "OBS Studio", PW_KEY_APP_ICON_NAME, "obs",
-		PW_KEY_NODE_NAME, "OBS Studio", PW_KEY_MEDIA_ROLE, "Production",
-		PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Capture",
-		PW_KEY_STREAM_CAPTURE_SINK, capture_sink_str, NULL);
-
 	pipewire_lock();
 
 	struct pw_stream *stream =
@@ -141,15 +133,15 @@ struct pw_stream *pipewire_stream_new(bool capture_sink,
 }
 
 int pipewire_stream_connect(struct pw_stream *stream,
-			    const struct spa_pod **params, uint32_t node_id)
+			    enum spa_direction direction, uint32_t target_id,
+			    enum pw_stream_flags flags,
+			    const struct spa_pod **params, uint32_t n_params)
 {
 	pipewire_lock();
 
 	int res = -1;
-	res = pw_stream_connect(stream, PW_DIRECTION_INPUT, node_id,
-				PW_STREAM_FLAG_AUTOCONNECT |
-					PW_STREAM_FLAG_MAP_BUFFERS,
-				params, 1);
+	res = pw_stream_connect(stream, direction, target_id, flags, params,
+				n_params);
 
 	pipewire_unlock();
 
