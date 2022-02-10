@@ -82,7 +82,7 @@ int pipewire_stream_connect(struct pw_stream *stream,
 			    const struct spa_pod **params,
 			    unsigned int node_id);
 /**
- * Connect a stream from a PipeWire node.
+ * Disconnect a stream from a PipeWire node.
  * @returns 0 on success
  */
 int pipewire_stream_disconnect(struct pw_stream *stream);
