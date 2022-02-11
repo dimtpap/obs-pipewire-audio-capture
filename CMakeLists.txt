@@ -11,28 +11,28 @@ if(ENABLE_PIPEWIRE)
 	add_definitions(-DENABLE_PIPEWIRE)
 
 	set(linux-pipewire-audio_INCLUDES
-    ${PIPEWIRE_INCLUDE_DIRS}
-  )
-  add_definitions(
-    ${PIPEWIRE_DEFINITIONS}
-  )
+		${PIPEWIRE_INCLUDE_DIRS}
+	)
+	add_definitions(
+		${PIPEWIRE_DEFINITIONS}
+	)
 
 	set(linux-pipewire-audio_SOURCES
-    linux-pipewire-audio.c
-    pipewire-input.c
-    pipewire-wrapper.c
-  )
+		linux-pipewire-audio.c
+		pipewire-input.c
+		pipewire-wrapper.c
+	)
 	set(linux-capture-audio_HEADERS
 		pipewire-wrapper.h
 	)
 	set(linux-pipewire-audio_LIBRARIES
-    libobs
-  	${PIPEWIRE_LIBRARIES}
-  ) 
+		libobs
+		${PIPEWIRE_LIBRARIES}
+	) 
 endif()
 
 include_directories(SYSTEM
-  ${linux-pipewire-audio_INCLUDES}
+	${linux-pipewire-audio_INCLUDES}
 )
 
 add_library(linux-pipewire-audio MODULE ${linux-pipewire-audio_SOURCES})
