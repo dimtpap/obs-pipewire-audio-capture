@@ -53,20 +53,17 @@ void pipewire_init()
 void pipewire_unref()
 {
 	if (--pipewire_refs == 0) {
-		pipewire_lock();
-
-		if (pipewire_core) {
-			pw_core_disconnect(pipewire_core);
-		}
-
-		if (pipewire_context) {
-			pw_context_destroy(pipewire_context);
-		}
-
-		pipewire_unlock();
-
 		if (pipewire_mainloop) {
 			pw_thread_loop_stop(pipewire_mainloop);
+
+			if (pipewire_core) {
+				pw_core_disconnect(pipewire_core);
+			}
+
+			if (pipewire_context) {
+				pw_context_destroy(pipewire_context);
+			}
+
 			pw_thread_loop_destroy(pipewire_mainloop);
 		}
 
@@ -114,7 +111,9 @@ pipewire_add_registry_listener(bool call_now, struct spa_hook *hook,
 
 void pipewire_proxy_destroy(struct pw_proxy *proxy)
 {
+	pipewire_lock();
 	pw_proxy_destroy(proxy);
+	pipewire_unlock();
 }
 
 struct pw_stream *pipewire_stream_new(struct pw_properties *props,
