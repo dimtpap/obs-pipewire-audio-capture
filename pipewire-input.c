@@ -61,24 +61,22 @@ struct pipewire_data {
 };
 
 //Utilities
-struct pipewire_node *get_node_by_name(const char *name,
-				       DARRAY(struct pipewire_node) * nodes_arr)
+struct pipewire_node *get_node_by_name(struct darray *da, const char *name)
 {
-	for (size_t i = 0; i < nodes_arr->num; i++) {
-		struct pipewire_node *node = darray_item(
-			sizeof(*nodes_arr->array), &nodes_arr->da, i);
+	for (size_t i = 0; i < da->num; i++) {
+		struct pipewire_node *node =
+			darray_item(sizeof(struct pipewire_node), da, i);
 		if (node && strcmp(node->name, name) == 0)
 			return node;
 	}
 	return NULL;
 }
-struct pipewire_node *
-get_node_and_idx_by_id(uint32_t id, DARRAY(struct pipewire_node) * nodes_arr,
-		       size_t *idx)
+struct pipewire_node *get_node_and_idx_by_id(struct darray *da, uint32_t id,
+					     size_t *idx)
 {
-	for (size_t i = 0; i < nodes_arr->num; i++) {
-		struct pipewire_node *node = darray_item(
-			sizeof(*nodes_arr->array), &nodes_arr->da, i);
+	for (size_t i = 0; i < da->num; i++) {
+		struct pipewire_node *node =
+			darray_item(sizeof(struct pipewire_node), da, i);
 		if (node && node->id == id) {
 			if (idx)
 				*idx = i;
@@ -320,7 +318,7 @@ static void pipewire_global_removed(void *data, uint32_t id)
 	size_t idx = 0;
 
 	struct pipewire_node *node =
-		get_node_and_idx_by_id(id, &lpwa->nodes_arr, &idx);
+		get_node_and_idx_by_id(&lpwa->nodes_arr.da, id, &idx);
 	if (node) {
 		blog(LOG_DEBUG,
 		     "[PipeWire Audio Capture] Node removed - %s - %s - %d",
@@ -340,7 +338,7 @@ static void pipewire_global_removed(void *data, uint32_t id)
 		lpwa->pw_target_id = 0;
 
 		struct pipewire_node *new_node = get_node_by_name(
-			lpwa->pw_target_name, &lpwa->nodes_arr);
+			&lpwa->nodes_arr.da, lpwa->pw_target_name);
 		if (new_node)
 			pipewire_start_streaming(lpwa, new_node->id);
 	}
@@ -350,8 +348,10 @@ done:
 }
 
 const struct pw_registry_events registry_events_enum = {
-	PW_VERSION_REGISTRY_EVENTS, .global = pipewire_global_added,
-	.global_remove = pipewire_global_removed};
+	PW_VERSION_REGISTRY_EVENTS,
+	.global = pipewire_global_added,
+	.global_remove = pipewire_global_removed,
+};
 //
 
 //Properties
@@ -400,8 +400,8 @@ static void pipewire_capture_update(void *data, obs_data_t *settings)
 
 	struct pipewire_node *new_node;
 	if (new_node_id) {
-		new_node = get_node_and_idx_by_id(new_node_id, &lpwa->nodes_arr,
-						  NULL);
+		new_node = get_node_and_idx_by_id(&lpwa->nodes_arr.da,
+						  new_node_id, NULL);
 	} else {
 		const char *set_node_name =
 			obs_data_get_string(settings, LPWA_TARGET_NAME);
@@ -409,7 +409,7 @@ static void pipewire_capture_update(void *data, obs_data_t *settings)
 		if (!set_node_name)
 			return;
 
-		new_node = get_node_by_name(set_node_name, &lpwa->nodes_arr);
+		new_node = get_node_by_name(&lpwa->nodes_arr.da, set_node_name);
 	}
 
 	if (new_node) {
