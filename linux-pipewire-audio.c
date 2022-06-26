@@ -17,6 +17,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <obs-module.h>
 
+#include <pipewire/pipewire.h>
+
+#include "pipewire-audio.h"
+
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE("linux-pipewire-audio", "en-US")
 MODULE_EXPORT const char *obs_module_description(void)
@@ -24,14 +28,9 @@ MODULE_EXPORT const char *obs_module_description(void)
 	return "PipeWire input, output and application audio capture";
 }
 
-extern struct obs_source_info pipewire_audio_input_capture;
-extern struct obs_source_info pipewire_audio_output_capture;
-extern struct obs_source_info pipewire_audio_application_capture;
-
 bool obs_module_load(void)
 {
-	obs_register_source(&pipewire_audio_input_capture);
-	obs_register_source(&pipewire_audio_output_capture);
-	obs_register_source(&pipewire_audio_application_capture);
+	pipewire_audio_capture_load();
+	pipewire_audio_capture_app_load();
 	return true;
 }

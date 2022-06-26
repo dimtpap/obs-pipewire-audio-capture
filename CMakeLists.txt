@@ -5,8 +5,10 @@ if(BUILD_STANDALONE OR ENABLE_PIPEWIRE)
 
 	set(linux-pipewire-audio_SOURCES
 			linux-pipewire-audio.c
-			pipewire-input.c
-			pipewire-wrapper.c
+			pipewire-audio.h
+			pipewire-audio.c
+			pipewire-audio-capture.c
+			pipewire-audio-capture-app.c
 	)
 
 	set(linux-capture-audio_HEADERS
