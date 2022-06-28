@@ -524,7 +524,7 @@ void obs_pw_audio_proxied_object_init(
 
 bool json_object_find(const char *obj, const char *key, char *value, size_t len)
 {
-	/** From PipeWire's sources */
+	/** From PipeWire's source */
 
 	struct spa_json it[2];
 	const char *v;

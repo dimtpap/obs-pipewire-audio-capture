@@ -330,7 +330,7 @@ static void on_sink_proxy_error_cb(void *data, int seq, int res,
 	     seq, res, message);
 }
 
-struct pw_proxy_events sink_proxy_events = {
+static const struct pw_proxy_events sink_proxy_events = {
 	PW_VERSION_PROXY_EVENTS,
 	.bound = on_sink_proxy_bound_cb,
 	.removed = on_sink_proxy_removed_cb,
@@ -495,7 +495,7 @@ static void on_default_sink_info_cb(void *data, const struct pw_node_info *info)
 	make_capture_sink(pwac, c, position);
 }
 
-struct pw_node_events default_sink_events = {
+static const struct pw_node_events default_sink_events = {
 	PW_VERSION_NODE_EVENTS,
 	.info = on_default_sink_info_cb,
 };
@@ -515,7 +515,7 @@ static void on_default_sink_proxy_destroy_cb(void *data)
 	pwac->default_info.sink = NULL;
 }
 
-static struct pw_proxy_events default_sink_proxy_events = {
+static const struct pw_proxy_events default_sink_proxy_events = {
 	PW_VERSION_NODE_EVENTS,
 	.removed = on_default_sink_proxy_removed_cb,
 	.destroy = on_default_sink_proxy_destroy_cb,
@@ -676,7 +676,7 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions,
 	}
 }
 
-const struct pw_registry_events registry_events_app = {
+static const struct pw_registry_events registry_events = {
 	PW_VERSION_REGISTRY_EVENTS,
 	.global = on_global_cb,
 };
@@ -711,7 +711,7 @@ static void *pipewire_audio_capture_app_create(obs_data_t *settings,
 	pw_thread_loop_lock(pwac->pw.thread_loop);
 
 	pw_registry_add_listener(pwac->pw.registry, &pwac->pw.registry_listener,
-				 &registry_events_app, pwac);
+				 &registry_events, pwac);
 
 	struct pw_properties *props = obs_pw_audio_stream_properties();
 	pw_properties_set(props, PW_KEY_NODE_ALWAYS_PROCESS, "true");
@@ -859,7 +859,7 @@ static void pipewire_audio_capture_app_destroy(void *data)
 	bfree(pwac);
 }
 
-const char *pipewire_audio_capture_app_name(void *data)
+static const char *pipewire_audio_capture_app_name(void *data)
 {
 	UNUSED_PARAMETER(data);
 	return obs_module_text("PipeWireAudioCaptureApplication");
@@ -867,7 +867,7 @@ const char *pipewire_audio_capture_app_name(void *data)
 
 void pipewire_audio_capture_app_load(void)
 {
-	struct obs_source_info pipewire_audio_capture_application = {
+	const struct obs_source_info pipewire_audio_capture_application = {
 		.id = "pipewire_audio_application_capture",
 		.type = OBS_SOURCE_TYPE_INPUT,
 		.output_flags = OBS_SOURCE_AUDIO | OBS_SOURCE_DO_NOT_DUPLICATE,

@@ -238,7 +238,7 @@ static int on_metadata_property_cb(void *data, uint32_t id, const char *key,
 	return 0;
 }
 
-static struct pw_metadata_events metadata_events = {
+static const struct pw_metadata_events metadata_events = {
 	PW_VERSION_METADATA_EVENTS,
 	.property = on_metadata_property_cb,
 };
@@ -326,7 +326,7 @@ static void on_global_remove_cb(void *data, uint32_t id)
 	}
 }
 
-const struct pw_registry_events registry_events = {
+static const struct pw_registry_events registry_events = {
 	PW_VERSION_REGISTRY_EVENTS,
 	.global = on_global_cb,
 	.global_remove = on_global_remove_cb,
@@ -537,12 +537,12 @@ static void pipewire_audio_capture_destroy(void *data)
 	bfree(pwac);
 }
 
-const char *pipewire_audio_capture_input_name(void *data)
+static const char *pipewire_audio_capture_input_name(void *data)
 {
 	UNUSED_PARAMETER(data);
 	return obs_module_text("PipeWireAudioCaptureInput");
 }
-const char *pipewire_audio_capture_output_name(void *data)
+static const char *pipewire_audio_capture_output_name(void *data)
 {
 	UNUSED_PARAMETER(data);
 	return obs_module_text("PipeWireAudioCaptureOutput");
@@ -550,7 +550,7 @@ const char *pipewire_audio_capture_output_name(void *data)
 
 void pipewire_audio_capture_load(void)
 {
-	struct obs_source_info pipewire_audio_capture_input = {
+	const struct obs_source_info pipewire_audio_capture_input = {
 		.id = "pipewire_audio_input_capture",
 		.type = OBS_SOURCE_TYPE_INPUT,
 		.output_flags = OBS_SOURCE_AUDIO | OBS_SOURCE_DO_NOT_DUPLICATE,
@@ -564,7 +564,7 @@ void pipewire_audio_capture_load(void)
 		.destroy = pipewire_audio_capture_destroy,
 		.icon_type = OBS_ICON_TYPE_AUDIO_INPUT,
 	};
-	struct obs_source_info pipewire_audio_capture_output = {
+	const struct obs_source_info pipewire_audio_capture_output = {
 		.id = "pipewire_audio_output_capture",
 		.type = OBS_SOURCE_TYPE_INPUT,
 		.output_flags = OBS_SOURCE_AUDIO | OBS_SOURCE_DO_NOT_DUPLICATE |
