@@ -30,7 +30,16 @@ MODULE_EXPORT const char *obs_module_description(void)
 
 bool obs_module_load(void)
 {
+	pw_init(NULL, NULL);
+
 	pipewire_audio_capture_load();
 	pipewire_audio_capture_app_load();
 	return true;
+}
+
+void obs_module_unload(void)
+{
+#if PW_CHECK_VERSION(0, 3, 49)
+	pw_deinit();
+#endif
 }

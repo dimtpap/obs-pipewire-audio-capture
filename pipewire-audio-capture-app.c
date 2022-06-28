@@ -868,7 +868,7 @@ const char *pipewire_audio_capture_app_name(void *data)
 void pipewire_audio_capture_app_load(void)
 {
 	struct obs_source_info pipewire_audio_capture_application = {
-		.id = "pipewire-audio-capture-application",
+		.id = "pipewire_audio_application_capture",
 		.type = OBS_SOURCE_TYPE_INPUT,
 		.output_flags = OBS_SOURCE_AUDIO | OBS_SOURCE_DO_NOT_DUPLICATE,
 		.get_name = pipewire_audio_capture_app_name,

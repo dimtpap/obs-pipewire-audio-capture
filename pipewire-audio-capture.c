@@ -551,7 +551,7 @@ const char *pipewire_audio_capture_output_name(void *data)
 void pipewire_audio_capture_load(void)
 {
 	struct obs_source_info pipewire_audio_capture_input = {
-		.id = "pipewire-audio-capture-input",
+		.id = "pipewire_audio_input_capture",
 		.type = OBS_SOURCE_TYPE_INPUT,
 		.output_flags = OBS_SOURCE_AUDIO | OBS_SOURCE_DO_NOT_DUPLICATE,
 		.get_name = pipewire_audio_capture_input_name,
@@ -565,7 +565,7 @@ void pipewire_audio_capture_load(void)
 		.icon_type = OBS_ICON_TYPE_AUDIO_INPUT,
 	};
 	struct obs_source_info pipewire_audio_capture_output = {
-		.id = "pipewire-audio-capture-output",
+		.id = "pipewire_audio_output_capture",
 		.type = OBS_SOURCE_TYPE_INPUT,
 		.output_flags = OBS_SOURCE_AUDIO | OBS_SOURCE_DO_NOT_DUPLICATE |
 				OBS_SOURCE_DO_NOT_SELF_MONITOR,
