@@ -362,6 +362,17 @@ bool obs_pw_audio_stream_init(struct obs_pw_audio_stream *s,
 	return true;
 }
 
+void obs_pw_audio_stream_destroy(struct obs_pw_audio_stream *s)
+{
+	if (s->stream) {
+		spa_hook_remove(&s->stream_listener);
+		pw_stream_disconnect(s->stream);
+		pw_stream_destroy(s->stream);
+
+		memset(s, 0, sizeof(struct obs_pw_audio_stream));
+	}
+}
+
 int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s,
 				enum spa_direction direction,
 				uint32_t target_id, enum pw_stream_flags flags,
@@ -391,23 +402,12 @@ int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s,
 				 1);
 }
 
-void obs_pw_audio_stream_destroy(struct obs_pw_audio_stream *s)
-{
-	if (s->stream) {
-		spa_hook_remove(&s->stream_listener);
-		pw_stream_disconnect(s->stream);
-		pw_stream_destroy(s->stream);
-
-		memset(s, 0, sizeof(struct obs_pw_audio_stream));
-	}
-}
-
 struct pw_properties *obs_pw_audio_stream_properties(void)
 {
 	return pw_properties_new(PW_KEY_NODE_NAME, "OBS Studio",
+				 PW_KEY_NODE_DESCRIPTION, "OBS Audio Capture",
 				 PW_KEY_APP_NAME, "OBS Studio",
 				 PW_KEY_MEDIA_TYPE, "Audio",
-				 PW_KEY_NODE_DESCRIPTION, "OBS Audio Capture",
 				 PW_KEY_MEDIA_CATEGORY, "Capture",
 				 PW_KEY_MEDIA_ROLE, "Production", NULL);
 }
@@ -474,6 +474,7 @@ static void on_proxy_bound_cb(void *data, uint32_t global_id)
 		obj->bound_callback(obj->data, global_id);
 	}
 }
+
 static void on_proxy_removed_cb(void *data)
 {
 	struct obs_pw_audio_proxied_object *obj = data;

@@ -113,6 +113,11 @@ bool obs_pw_audio_stream_init(struct obs_pw_audio_stream *s,
 			      obs_source_t *output);
 
 /**
+ * Destroy a stream
+ */
+void obs_pw_audio_stream_destroy(struct obs_pw_audio_stream *s);
+
+/**
  * Connect a stream with the default params
  * @returns 0 on success, < 0 on error
  */
@@ -120,10 +125,6 @@ int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s,
 				enum spa_direction direction,
 				uint32_t target_id, enum pw_stream_flags flags,
 				uint32_t channels);
-/**
- * Destroy a stream
- */
-void obs_pw_audio_stream_destroy(struct obs_pw_audio_stream *s);
 
 /**
  * Default PipeWire stream properties
@@ -164,6 +165,7 @@ struct obs_pw_audio_proxied_object {
 
 	struct spa_list link;
 };
+
 /**
  * Initialize a proxied object
  */

@@ -232,9 +232,9 @@ static void link_port_to_sink(struct obs_pw_audio_capture_app *pwac,
 		return;
 	}
 
-	struct pw_properties *link_props = pw_properties_new(NULL, NULL);
-	pw_properties_set(link_props, PW_KEY_OBJECT_LINGER, "false");
-	pw_properties_set(link_props, PW_KEY_FACTORY_NAME, "link-factory");
+	struct pw_properties *link_props =
+		pw_properties_new(PW_KEY_OBJECT_LINGER, "false",
+				  PW_KEY_FACTORY_NAME, "link-factory", NULL);
 
 	pw_properties_setf(link_props, PW_KEY_LINK_OUTPUT_NODE, "%u", node_id);
 	pw_properties_setf(link_props, PW_KEY_LINK_OUTPUT_PORT, "%u", port->id);
@@ -311,11 +311,15 @@ static void on_sink_proxy_destroy_cb(void *data)
 	}
 	da_free(pwac->sink.ports);
 
-	blog(LOG_DEBUG, "[pipewire] App capture sink %u destroyed",
-	     pwac->sink.id);
+	pwac->sink.channels = 0;
+	dstr_free(&pwac->sink.position);
 
 	pwac->sink.autoconnect_targets = false;
 	pwac->sink.proxy = NULL;
+
+	blog(LOG_DEBUG, "[pipewire] App capture sink %u destroyed",
+	     pwac->sink.id);
+
 	pwac->sink.id = SPA_ID_INVALID;
 }
 
@@ -376,18 +380,14 @@ static void connect_targets(struct obs_pw_audio_capture_app *pwac)
 static bool make_capture_sink(struct obs_pw_audio_capture_app *pwac,
 			      uint32_t channels, const char *position)
 {
-	struct pw_properties *sink_props = pw_properties_new(NULL, NULL);
-
-	pw_properties_set(sink_props, PW_KEY_NODE_NAME, "OBS");
-	pw_properties_set(sink_props, PW_KEY_NODE_DESCRIPTION,
-			  "OBS App Audio Capture Sink");
-	pw_properties_set(sink_props, PW_KEY_FACTORY_NAME,
-			  "support.null-audio-sink");
-	pw_properties_set(sink_props, PW_KEY_MEDIA_CLASS, "Audio/Sink/Virtual");
-	pw_properties_set(sink_props, PW_KEY_NODE_VIRTUAL, "true");
+	struct pw_properties *sink_props = pw_properties_new(
+		PW_KEY_NODE_NAME, "OBS", PW_KEY_NODE_DESCRIPTION,
+		"OBS App Audio Capture Sink", PW_KEY_FACTORY_NAME,
+		"support.null-audio-sink", PW_KEY_MEDIA_CLASS,
+		"Audio/Sink/Virtual", PW_KEY_NODE_VIRTUAL, "true",
+		SPA_KEY_AUDIO_POSITION, position, NULL);
 
 	pw_properties_setf(sink_props, PW_KEY_AUDIO_CHANNELS, "%u", channels);
-	pw_properties_set(sink_props, SPA_KEY_AUDIO_POSITION, position);
 
 	pwac->sink.proxy = pw_core_create_object(pwac->pw.core, "adapter",
 						 PW_TYPE_INTERFACE_Node,
@@ -452,8 +452,6 @@ static void destroy_capture_sink(struct obs_pw_audio_capture_app *pwac)
 		pw_stream_disconnect(pwac->audio.stream);
 	}
 	pwac->sink.autoconnect_targets = false;
-	pwac->sink.channels = 0;
-	dstr_free(&pwac->sink.position);
 	pw_proxy_destroy(pwac->sink.proxy);
 	obs_pw_audio_instance_sync(&pwac->pw);
 }
@@ -481,6 +479,9 @@ static void on_default_sink_info_cb(void *data, const struct pw_node_info *info)
 	}
 
 	uint32_t c = atoi(channels);
+	if (!c) {
+		return;
+	}
 
 	/** No need to create a new capture sink if the channels are the same */
 	if (pwac->sink.channels == c && !dstr_is_empty(&pwac->sink.position) &&
