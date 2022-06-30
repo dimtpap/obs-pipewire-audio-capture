@@ -40,6 +40,7 @@ struct target_node {
 	const char *name;
 	uint32_t id;
 	struct spa_list ports;
+	size_t *p_n_targets;
 
 	struct obs_pw_audio_proxied_object obj;
 };
@@ -93,6 +94,7 @@ struct obs_pw_audio_capture_app {
 	} default_info;
 
 	struct spa_list targets;
+	size_t n_targets;
 
 	struct dstr target_name;
 	bool except_app;
@@ -142,6 +144,8 @@ static void node_destroy_cb(void *data)
 		pw_proxy_destroy(p->obj.proxy);
 	}
 
+	(*n->p_n_targets)--;
+
 	bfree((void *)n->friendly_name);
 	bfree((void *)n->name);
 }
@@ -183,7 +187,10 @@ static void register_target_node(struct obs_pw_audio_capture_app *pwac,
 	n->friendly_name = bstrdup(friendly_name);
 	n->name = bstrdup(name);
 	n->id = global_id;
+	n->p_n_targets = &pwac->n_targets;
 	spa_list_init(&n->ports);
+
+	pwac->n_targets++;
 
 	obs_pw_audio_proxied_object_init(&n->obj, node_proxy, &pwac->targets,
 					 NULL, node_destroy_cb, n);
@@ -433,7 +440,7 @@ static bool make_capture_sink(struct obs_pw_audio_capture_app *pwac,
 
 	if (obs_pw_audio_stream_connect(
 		    &pwac->audio, PW_DIRECTION_INPUT, pwac->sink.id,
-		    PW_STREAM_FLAG_MAP_BUFFERS | PW_STREAM_FLAG_AUTOCONNECT,
+		    PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS,
 		    channels) < 0) {
 		blog(LOG_WARNING,
 		     "[pipewire] Error connecting stream %p to app capture sink %u",
@@ -712,10 +719,11 @@ static void *pipewire_audio_capture_app_create(obs_data_t *settings,
 	pw_registry_add_listener(pwac->pw.registry, &pwac->pw.registry_listener,
 				 &registry_events, pwac);
 
-	struct pw_properties *props = obs_pw_audio_stream_properties();
-	pw_properties_set(props, PW_KEY_NODE_ALWAYS_PROCESS, "true");
-	pw_properties_set(props, PW_KEY_STREAM_CAPTURE_SINK, "true");
-	if (obs_pw_audio_stream_init(&pwac->audio, &pwac->pw, props, source)) {
+	struct pw_properties *stream_props = obs_pw_audio_stream_properties();
+	pw_properties_set(stream_props, PW_KEY_NODE_ALWAYS_PROCESS, "true");
+	pw_properties_set(stream_props, PW_KEY_STREAM_CAPTURE_SINK, "true");
+	if (obs_pw_audio_stream_init(&pwac->audio, &pwac->pw, stream_props,
+				     source)) {
 		blog(LOG_INFO, "[pipewire] Created stream %p",
 		     pwac->audio.stream);
 	} else {
@@ -734,6 +742,18 @@ static void pipewire_audio_capture_app_defaults(obs_data_t *settings)
 	obs_data_set_bool(settings, "ExceptApp", false);
 }
 
+struct targets_arr_entry {
+	const char *name;
+	const char *val;
+};
+
+static int cmp_targets(const void *a, const void *b)
+{
+	const struct targets_arr_entry *ta = a;
+	const struct targets_arr_entry *tb = b;
+	return strcmp(ta->val, tb->val);
+}
+
 static obs_properties_t *pipewire_audio_capture_app_properties(void *data)
 {
 	struct obs_pw_audio_capture_app *pwac = data;
@@ -748,18 +768,40 @@ static obs_properties_t *pipewire_audio_capture_app_properties(void *data)
 		p, "TargetName", obs_module_text("Applications"),
 		OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
 
+	obs_properties_add_bool(p, "ExceptApp", obs_module_text("ExceptApp"));
+
+	DARRAY(struct targets_arr_entry) targets_arr;
+	da_init(targets_arr);
+
 	pw_thread_loop_lock(pwac->pw.thread_loop);
+
+	da_reserve(targets_arr, pwac->n_targets);
 
 	struct target_node *n;
 	spa_list_for_each(n, &pwac->targets, obj.link)
 	{
-		obs_property_list_add_string(targets_list, n->friendly_name,
-					     n->name);
+		struct targets_arr_entry *t = da_push_back_new(targets_arr);
+		t->name = n->friendly_name;
+		t->val = n->name;
 	}
 
-	obs_properties_add_bool(p, "ExceptApp", obs_module_text("ExceptApp"));
+	/** Only show one entry per app */
+
+	qsort(targets_arr.array, targets_arr.num,
+	      sizeof(struct targets_arr_entry), cmp_targets);
+
+	for (size_t i = 0; i < targets_arr.num; i++) {
+		if (i == 0 || strcmp(targets_arr.array[i - 1].val,
+				     targets_arr.array[i].val) != 0) {
+			obs_property_list_add_string(targets_list,
+						     targets_arr.array[i].name,
+						     targets_arr.array[i].val);
+		}
+	}
 
 	pw_thread_loop_unlock(pwac->pw.thread_loop);
+
+	da_free(targets_arr);
 
 	return p;
 }
