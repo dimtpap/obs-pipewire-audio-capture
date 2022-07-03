@@ -259,23 +259,19 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions,
 	}
 
 	if (strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
-		const char *media_class =
-			spa_dict_lookup(props, PW_KEY_MEDIA_CLASS);
-		if (!media_class) {
+		const char *node_name, *media_class;
+		if (!(node_name = spa_dict_lookup(props, PW_KEY_NODE_NAME)) ||
+		    !(media_class =
+			      spa_dict_lookup(props, PW_KEY_MEDIA_CLASS))) {
 			return;
 		}
 
 		/** Target device */
 		if ((pwac->capture_type == PIPEWIRE_AUDIO_CAPTURE_INPUT &&
-		     strcmp(media_class, "Audio/Source") == 0) ||
+		     (strcmp(media_class, "Audio/Source") == 0 ||
+		      strcmp(media_class, "Audio/Source/Virtual") == 0)) ||
 		    (pwac->capture_type == PIPEWIRE_AUDIO_CAPTURE_OUTPUT &&
 		     strcmp(media_class, "Audio/Sink") == 0)) {
-			const char *node_name =
-				spa_dict_lookup(props, PW_KEY_NODE_NAME);
-			if (!node_name) {
-				return;
-			}
-
 			const char *node_friendly_name =
 				spa_dict_lookup(props, PW_KEY_NODE_NICK);
 			if (!node_friendly_name) {
