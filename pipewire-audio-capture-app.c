@@ -761,7 +761,7 @@ static obs_properties_t *pipewire_audio_capture_app_properties(void *data)
 	obs_properties_t *p = obs_properties_create();
 
 	obs_property_t *targets_list = obs_properties_add_list(
-		p, "TargetName", obs_module_text("Applications"),
+		p, "TargetName", obs_module_text("Application"),
 		OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
 
 	obs_properties_add_bool(p, "ExceptApp", obs_module_text("ExceptApp"));
