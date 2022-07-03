@@ -417,10 +417,6 @@ static obs_properties_t *pipewire_audio_capture_properties(void *data)
 
 	obs_properties_t *p = obs_properties_create();
 
-	if (!pwac->pw.thread_loop || !pwac->pw.core) {
-		return p;
-	}
-
 	obs_property_t *targets_list = obs_properties_add_list(
 		p, "TargetId", obs_module_text("Device"), OBS_COMBO_TYPE_LIST,
 		OBS_COMBO_FORMAT_INT);
@@ -445,10 +441,6 @@ static obs_properties_t *pipewire_audio_capture_properties(void *data)
 static void pipewire_audio_capture_update(void *data, obs_data_t *settings)
 {
 	struct obs_pw_audio_capture *pwac = data;
-
-	if (!pwac->pw.thread_loop || !pwac->pw.core) {
-		return;
-	}
 
 	pw_thread_loop_lock(pwac->pw.thread_loop);
 
@@ -513,23 +505,21 @@ static void pipewire_audio_capture_destroy(void *data)
 {
 	struct obs_pw_audio_capture *pwac = data;
 
-	if (pwac->pw.thread_loop) {
-		pw_thread_loop_lock(pwac->pw.thread_loop);
+	pw_thread_loop_lock(pwac->pw.thread_loop);
 
-		struct target_node *n, *tn;
-		spa_list_for_each_safe(n, tn, &pwac->targets, obj.link)
-		{
-			pw_proxy_destroy(n->obj.proxy);
-		}
-
-		obs_pw_audio_stream_destroy(&pwac->audio);
-
-		if (pwac->default_info.metadata.proxy) {
-			pw_proxy_destroy(pwac->default_info.metadata.proxy);
-		}
-
-		obs_pw_audio_instance_destroy(&pwac->pw);
+	struct target_node *n, *tn;
+	spa_list_for_each_safe(n, tn, &pwac->targets, obj.link)
+	{
+		pw_proxy_destroy(n->obj.proxy);
 	}
+
+	obs_pw_audio_stream_destroy(&pwac->audio);
+
+	if (pwac->default_info.metadata.proxy) {
+		pw_proxy_destroy(pwac->default_info.metadata.proxy);
+	}
+
+	obs_pw_audio_instance_destroy(&pwac->pw);
 
 	dstr_free(&pwac->default_info.name);
 	dstr_free(&pwac->target_name);
