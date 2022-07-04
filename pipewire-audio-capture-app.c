@@ -720,7 +720,6 @@ static void *pipewire_audio_capture_app_create(obs_data_t *settings,
 				 &registry_events, pwac);
 
 	struct pw_properties *stream_props = obs_pw_audio_stream_properties();
-	pw_properties_set(stream_props, PW_KEY_NODE_ALWAYS_PROCESS, "true");
 	pw_properties_set(stream_props, PW_KEY_STREAM_CAPTURE_SINK, "true");
 	if (obs_pw_audio_stream_init(&pwac->audio, &pwac->pw, stream_props,
 				     source)) {
