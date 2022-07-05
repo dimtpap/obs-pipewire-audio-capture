@@ -369,11 +369,8 @@ pipewire_audio_capture_create(obs_data_t *settings, obs_source_t *source,
 	pw_registry_add_listener(pwac->pw.registry, &pwac->pw.registry_listener,
 				 &registry_events, pwac);
 
-	struct pw_properties *props = obs_pw_audio_stream_properties();
-	pw_properties_set(props, PW_KEY_STREAM_CAPTURE_SINK,
-			  capture_type == PIPEWIRE_AUDIO_CAPTURE_OUTPUT
-				  ? "true"
-				  : "false");
+	struct pw_properties *props = obs_pw_audio_stream_properties(
+		capture_type == PIPEWIRE_AUDIO_CAPTURE_OUTPUT);
 	if (obs_pw_audio_stream_init(&pwac->audio, &pwac->pw, props,
 				     pwac->source)) {
 		blog(LOG_INFO, "[pipewire] Created stream %p",

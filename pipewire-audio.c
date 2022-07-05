@@ -402,14 +402,14 @@ int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s,
 				 1);
 }
 
-struct pw_properties *obs_pw_audio_stream_properties(void)
+struct pw_properties *obs_pw_audio_stream_properties(bool capture_sink)
 {
-	return pw_properties_new(PW_KEY_NODE_NAME, "OBS Studio",
-				 PW_KEY_NODE_DESCRIPTION, "OBS Audio Capture",
-				 PW_KEY_APP_NAME, "OBS Studio",
-				 PW_KEY_MEDIA_TYPE, "Audio",
-				 PW_KEY_MEDIA_CATEGORY, "Capture",
-				 PW_KEY_MEDIA_ROLE, "Production", NULL);
+	return pw_properties_new(
+		PW_KEY_NODE_NAME, "OBS Studio", PW_KEY_NODE_DESCRIPTION,
+		"OBS Audio Capture", PW_KEY_APP_NAME, "OBS Studio",
+		PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Capture",
+		PW_KEY_MEDIA_ROLE, "Production", PW_KEY_STREAM_CAPTURE_SINK,
+		capture_sink ? "true" : "false", NULL);
 }
 /* ------------------------------------------------- */
 

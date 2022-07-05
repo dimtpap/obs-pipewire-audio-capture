@@ -129,7 +129,7 @@ int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s,
 /**
  * Default PipeWire stream properties
  */
-struct pw_properties *obs_pw_audio_stream_properties(void);
+struct pw_properties *obs_pw_audio_stream_properties(bool capture_sink);
 /* ------------------------------------------------- */
 
 /**
