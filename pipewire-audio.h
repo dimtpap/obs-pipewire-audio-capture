@@ -31,12 +31,6 @@
 
 /* Utilities */
 
-static uint32_t obs_audio_format_sample_size(enum audio_format audio_format);
-
-#define NSEC_PER_SEC 1000000000ULL
-static inline uint64_t audio_frames_to_nanosecs(uint32_t sample_rate,
-						uint32_t frames);
-
 bool json_object_find(const char *obj, const char *key, char *value,
 		      size_t len);
 
@@ -179,26 +173,4 @@ void obs_pw_audio_proxied_object_init(
 
 void pipewire_audio_capture_load(void);
 void pipewire_audio_capture_app_load(void);
-
 /* ------------------------------------------------- */
-
-static uint32_t obs_audio_format_sample_size(enum audio_format audio_format)
-{
-	switch (audio_format) {
-	case AUDIO_FORMAT_U8BIT:
-		return 1;
-	case AUDIO_FORMAT_16BIT:
-		return 2;
-	case AUDIO_FORMAT_32BIT:
-	case AUDIO_FORMAT_FLOAT:
-		return 4;
-	default:
-		return 2;
-	}
-}
-
-static inline uint64_t audio_frames_to_nanosecs(uint32_t sample_rate,
-						uint32_t frames)
-{
-	return util_mul_div64(frames, NSEC_PER_SEC, sample_rate);
-}

@@ -28,6 +28,33 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/utils/json.h>
 
+/** Utilities */
+bool json_object_find(const char *obj, const char *key, char *value, size_t len)
+{
+	/** From PipeWire's source */
+
+	struct spa_json it[2];
+	const char *v;
+	char k[128];
+
+	spa_json_init(&it[0], obj, strlen(obj));
+	if (spa_json_enter_object(&it[0], &it[1]) <= 0) {
+		return false;
+	}
+
+	while (spa_json_get_string(&it[1], k, sizeof(k)) > 0) {
+		if (spa_streq(k, key)) {
+			if (spa_json_get_string(&it[1], value, len) > 0) {
+				return true;
+			}
+		} else if (spa_json_next(&it[1], &v) <= 0) {
+			break;
+		}
+	}
+	return false;
+}
+/* ------------------------------------------------- */
+
 /** Common PipeWire components */
 static void on_core_done_cb(void *data, uint32_t id, int seq)
 {
@@ -120,6 +147,27 @@ void obs_pw_audio_instance_sync(struct obs_pw_audio_instance *pw)
 /* ------------------------------------------------- */
 
 /* PipeWire stream wrapper */
+static uint32_t obs_audio_format_sample_size(enum audio_format audio_format)
+{
+	switch (audio_format) {
+	case AUDIO_FORMAT_U8BIT:
+		return 1;
+	case AUDIO_FORMAT_16BIT:
+		return 2;
+	case AUDIO_FORMAT_32BIT:
+	case AUDIO_FORMAT_FLOAT:
+		return 4;
+	default:
+		return 2;
+	}
+}
+
+static inline uint64_t audio_frames_to_nanosecs(uint32_t sample_rate,
+						uint32_t frames)
+{
+	return util_mul_div64(frames, SPA_NSEC_PER_SEC, sample_rate);
+}
+
 void obs_channels_to_spa_audio_position(uint32_t *position, uint32_t channels)
 {
 	switch (channels) {
@@ -413,7 +461,7 @@ struct pw_properties *obs_pw_audio_stream_properties(bool capture_sink)
 }
 /* ------------------------------------------------- */
 
-/* PipeWire metadata proxy */
+/* PipeWire metadata */
 static void on_metadata_proxy_removed_cb(void *data)
 {
 	struct obs_pw_audio_metadata *metadata = data;
@@ -519,30 +567,4 @@ void obs_pw_audio_proxied_object_init(
 	pw_proxy_add_listener(obj->proxy, &obj->proxy_listener, &proxy_events,
 			      obj);
 }
-
 /* ------------------------------------------------- */
-
-bool json_object_find(const char *obj, const char *key, char *value, size_t len)
-{
-	/** From PipeWire's source */
-
-	struct spa_json it[2];
-	const char *v;
-	char k[128];
-
-	spa_json_init(&it[0], obj, strlen(obj));
-	if (spa_json_enter_object(&it[0], &it[1]) <= 0) {
-		return false;
-	}
-
-	while (spa_json_get_string(&it[1], k, sizeof(k)) > 0) {
-		if (spa_streq(k, key)) {
-			if (spa_json_get_string(&it[1], value, len) > 0) {
-				return true;
-			}
-		} else if (spa_json_next(&it[1], &v) <= 0) {
-			break;
-		}
-	}
-	return false;
-}
