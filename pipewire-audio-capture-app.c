@@ -377,7 +377,7 @@ static void connect_targets(struct obs_pw_audio_capture_app *pwac)
 	struct target_node *n;
 	spa_list_for_each(n, &pwac->targets, obj.link)
 	{
-		if (dstr_cmp(&pwac->target_name, n->name) == 0 ^
+		if ((dstr_cmp(&pwac->target_name, n->name) == 0) ^
 		    pwac->except_app) {
 			link_node_to_sink(pwac, n);
 		}
@@ -646,7 +646,7 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions,
 			/** Connect new port to capture sink if the node is targeted */
 			if (p && pwac->sink.autoconnect_targets &&
 			    !dstr_is_empty(&pwac->target_name) &&
-			    (dstr_cmp(&pwac->target_name, n->name) == 0 ^
+			    ((dstr_cmp(&pwac->target_name, n->name) == 0) ^
 			     pwac->except_app)) {
 				link_port_to_sink(pwac, p, n->id);
 			}
