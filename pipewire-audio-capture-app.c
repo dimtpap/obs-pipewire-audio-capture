@@ -472,14 +472,23 @@ static void on_default_sink_info_cb(void *data, const struct pw_node_info *info)
 		return;
 	}
 
-	const char *channels, *position;
-	if (!(channels = spa_dict_lookup(info->props, PW_KEY_AUDIO_CHANNELS)) ||
-	    !(position =
-		      spa_dict_lookup(info->props, SPA_KEY_AUDIO_POSITION))) {
-		/** Fallback to stereo if there's no info and no capture sink */
+	/** Use stereo if
+	  * - The default sink uses the Pro Audio profile, since all streams will be configured to use stereo
+	  * https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/FAQ#what-is-the-pro-audio-profile
+	  * - The default sink doesn't have the needed props and there isn't already an app capture sink */
+
+	const char *channels =
+		spa_dict_lookup(info->props, PW_KEY_AUDIO_CHANNELS);
+	const char *position =
+		spa_dict_lookup(info->props, SPA_KEY_AUDIO_POSITION);
+	if (!channels || !position) {
 		if (pwac->sink.proxy) {
 			return;
 		}
+		channels = "2";
+		position = "FL,FR";
+	} else if (astrstri(position, "AUX")) {
+		/** Pro Audio sinks use AUX0,AUX1... and so on as their position (see link above) */
 		channels = "2";
 		position = "FL,FR";
 	}
