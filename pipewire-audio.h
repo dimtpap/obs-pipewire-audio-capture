@@ -51,7 +51,7 @@ struct obs_pw_audio_instance {
 
 /**
  * Initialize a PipeWire instance
- * @returns true on success, false on error
+ * @return true on success, false on error
  */
 bool obs_pw_audio_instance_init(struct obs_pw_audio_instance *pw);
 
@@ -113,7 +113,7 @@ void obs_pw_audio_stream_destroy(struct obs_pw_audio_stream *s);
 
 /**
  * Connect a stream with the default params
- * @returns 0 on success, < 0 on error
+ * @return 0 on success, < 0 on error
  */
 int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s,
 				enum spa_direction direction,
@@ -137,7 +137,7 @@ struct obs_pw_audio_metadata {
 
 /**
  * Add listeners to the metadata
- * @returns true on success, false on error
+ * @return true on success, false on error
  */
 bool obs_pw_audio_metadata_listen(
 	struct obs_pw_audio_metadata *metadata,
