@@ -1,8 +1,7 @@
-# PipeWire Audio Capturing for OBS Studio
+# Audio device and application capture for OBS Studio using PipeWire 
 
-PipeWire audio capturing for OBS Studio  
-This plugin adds 3 sources for capturing audio outputs, inputs and applications using PipeWire
-## Pre-built Installation
+This plugin adds 3 sources for capturing audio outputs, inputs and applications using [PipeWire](https://pipewire.org)
+## Binary installation
 If you're using pre-built binaries from the [releases](https://github.com/Qufyy/obs-pipewire-audio-capture/releases) extract the archive in `~/.config/obs-studio/plugins/`
 
 ## Building and installing
@@ -13,4 +12,3 @@ cd build
 make
 make install #May need root
 ```
----
