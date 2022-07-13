@@ -17,4 +17,4 @@ make install #May need root
 ```
 ## Extra
 
-*This plugin is currently in the process of being worked on to merge into the official OBS Studio package. See at https://github.com/obsproject/obs-studio/pull/6207*
+*This plugin is currently in the process of being worked on to merge into upstream OBS Studio. See at https://github.com/obsproject/obs-studio/pull/6207*
