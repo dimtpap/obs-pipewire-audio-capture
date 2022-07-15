@@ -34,9 +34,12 @@ struct target_node_port {
 struct target_node {
 	const char *friendly_name;
 	const char *name;
+	const char *binary;
 	uint32_t id;
 	struct spa_list ports;
 	size_t *p_n_targets;
+
+	struct spa_hook node_listener;
 
 	struct obs_pw_audio_proxied_object obj;
 };
@@ -132,18 +135,21 @@ static void port_destroy_cb(void *data)
 
 static void node_destroy_cb(void *data)
 {
-	struct target_node *n = data;
+	struct target_node *node = data;
+
+	spa_hook_remove(&node->node_listener);
 
 	struct target_node_port *p, *tp;
-	spa_list_for_each_safe(p, tp, &n->ports, obj.link)
+	spa_list_for_each_safe(p, tp, &node->ports, obj.link)
 	{
 		pw_proxy_destroy(p->obj.proxy);
 	}
 
-	(*n->p_n_targets)--;
+	(*node->p_n_targets)--;
 
-	bfree((void *)n->friendly_name);
-	bfree((void *)n->name);
+	bfree((void *)node->binary);
+	bfree((void *)node->friendly_name);
+	bfree((void *)node->name);
 }
 
 static struct target_node_port *node_register_port(struct target_node *node,
@@ -168,6 +174,28 @@ static struct target_node_port *node_register_port(struct target_node *node,
 	return p;
 }
 
+static void on_node_info_cb(void *data, const struct pw_node_info *info)
+{
+	if (!info->props || !info->props->n_items) {
+		return;
+	}
+
+	const char *binary =
+		spa_dict_lookup(info->props, PW_KEY_APP_PROCESS_BINARY);
+	if (!binary) {
+		return;
+	}
+
+	struct target_node *node = data;
+	bfree((void *)node->binary);
+	node->binary = bstrdup(binary);
+}
+
+static const struct pw_node_events node_events = {
+	PW_VERSION_NODE_EVENTS,
+	.info = on_node_info_cb,
+};
+
 static void register_target_node(struct obs_pw_audio_capture_app *pwac,
 				 const char *friendly_name, const char *name,
 				 uint32_t global_id)
@@ -179,17 +207,39 @@ static void register_target_node(struct obs_pw_audio_capture_app *pwac,
 		return;
 	}
 
-	struct target_node *n = bmalloc(sizeof(struct target_node));
-	n->friendly_name = bstrdup(friendly_name);
-	n->name = bstrdup(name);
-	n->id = global_id;
-	n->p_n_targets = &pwac->n_targets;
-	spa_list_init(&n->ports);
+	struct target_node *node = bmalloc(sizeof(struct target_node));
+	node->friendly_name = bstrdup(friendly_name);
+	node->name = bstrdup(name);
+	node->binary = NULL;
+	node->id = global_id;
+	node->p_n_targets = &pwac->n_targets;
+	spa_list_init(&node->ports);
 
 	pwac->n_targets++;
 
-	obs_pw_audio_proxied_object_init(&n->obj, node_proxy, &pwac->targets,
-					 NULL, node_destroy_cb, n);
+	obs_pw_audio_proxied_object_init(&node->obj, node_proxy, &pwac->targets,
+					 NULL, node_destroy_cb, node);
+	pw_proxy_add_object_listener(node_proxy, &node->node_listener,
+				     &node_events, node);
+}
+
+static bool node_is_targeted(struct obs_pw_audio_capture_app *pwac,
+			     struct target_node *node)
+{
+	if (dstr_is_empty(&pwac->target_name)) {
+		return false;
+	}
+
+	const char *cmp;
+	if (node->binary) {
+		cmp = node->binary;
+	} else if (node->name) {
+		cmp = node->name;
+	} else {
+		return false;
+	}
+
+	return (dstr_cmpi(&pwac->target_name, cmp) == 0) ^ pwac->except_app;
 }
 /* ------------------------------------------------- */
 
@@ -329,6 +379,7 @@ static void on_sink_proxy_destroy_cb(void *data)
 static void on_sink_proxy_error_cb(void *data, int seq, int res,
 				   const char *message)
 {
+	UNUSED_PARAMETER(data);
 	blog(LOG_ERROR, "[pipewire] App capture sink error: seq:%d res:%d :%s",
 	     seq, res, message);
 }
@@ -373,8 +424,7 @@ static void connect_targets(struct obs_pw_audio_capture_app *pwac)
 	struct target_node *n;
 	spa_list_for_each(n, &pwac->targets, obj.link)
 	{
-		if ((dstr_cmp(&pwac->target_name, n->name) == 0) ^
-		    pwac->except_app) {
+		if (node_is_targeted(pwac, n)) {
 			link_node_to_sink(pwac, n);
 		}
 	}
@@ -600,11 +650,10 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions,
 
 		uint32_t node_id = atoi(nid);
 
-		if (astrcmpi(dir, "in") == 0 &&
-		    node_id == pwac->sink.id) { /** Capture sink port */
+		if (astrcmpi(dir, "in") == 0 && node_id == pwac->sink.id) {
 			register_capture_sink_port(pwac, chn, id);
-		} else if (astrcmpi(dir, "out") ==
-			   0) { /** Possibly a target port */
+		} else if (astrcmpi(dir, "out") == 0) {
+			/** Possibly a target port */
 			struct target_node *t, *n = NULL;
 			spa_list_for_each(t, &pwac->targets, obj.link)
 			{
@@ -620,11 +669,8 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions,
 			struct target_node_port *p = node_register_port(
 				n, pwac->pw.registry, id, chn);
 
-			/** Connect new port to capture sink if the node is targeted */
 			if (p && pwac->sink.autoconnect_targets &&
-			    !dstr_is_empty(&pwac->target_name) &&
-			    ((dstr_cmp(&pwac->target_name, n->name) == 0) ^
-			     pwac->except_app)) {
+			    node_is_targeted(pwac, n)) {
 				link_port_to_sink(pwac, p, n->id);
 			}
 		}
@@ -639,7 +685,7 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions,
 		if (strcmp(media_class, "Stream/Output/Audio") == 0) {
 			/** Target node */
 			const char *node_friendly_name =
-				spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION);
+				spa_dict_lookup(props, PW_KEY_APP_NAME);
 
 			if (!node_friendly_name) {
 				node_friendly_name = node_name;
@@ -648,7 +694,6 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions,
 			register_target_node(pwac, node_friendly_name,
 					     node_name, id);
 		} else if (strcmp(media_class, "Audio/Sink") == 0) {
-			/** Track system sinks to get info for the app capture sink */
 			register_system_sink(pwac, node_name, id);
 		}
 	} else if (strcmp(type, PW_TYPE_INTERFACE_Metadata) == 0) {
@@ -747,7 +792,7 @@ static obs_properties_t *pipewire_audio_capture_app_properties(void *data)
 
 	obs_property_t *targets_list = obs_properties_add_list(
 		p, "TargetName", obs_module_text("Application"),
-		OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
+		OBS_COMBO_TYPE_EDITABLE, OBS_COMBO_FORMAT_STRING);
 
 	obs_properties_add_bool(p, "ExceptApp", obs_module_text("ExceptApp"));
 
@@ -758,12 +803,12 @@ static obs_properties_t *pipewire_audio_capture_app_properties(void *data)
 
 	da_reserve(targets_arr, pwac->n_targets);
 
-	struct target_node *n;
-	spa_list_for_each(n, &pwac->targets, obj.link)
+	struct target_node *node;
+	spa_list_for_each(node, &pwac->targets, obj.link)
 	{
 		struct targets_arr_entry *t = da_push_back_new(targets_arr);
-		t->name = n->friendly_name;
-		t->val = n->name;
+		t->name = node->binary ? node->binary : node->friendly_name;
+		t->val = node->binary ? node->binary : node->name;
 	}
 
 	/** Only show one entry per app */
@@ -800,8 +845,7 @@ static void pipewire_audio_capture_app_update(void *data, obs_data_t *settings)
 
 	if (except == pwac->except_app &&
 	    (!new_target_name || !*new_target_name ||
-	     (!dstr_is_empty(&pwac->target_name) &&
-	      dstr_cmp(&pwac->target_name, new_target_name) == 0))) {
+	     dstr_cmpi(&pwac->target_name, new_target_name) == 0)) {
 		goto unlock;
 	}
 
