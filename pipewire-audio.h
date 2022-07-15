@@ -28,11 +28,6 @@
 #include <pipewire/extensions/metadata.h>
 #include <spa/param/audio/format-utils.h>
 
-/* Utilities */
-
-bool json_object_find(const char *obj, const char *key, char *value,
-		      size_t len);
-
 /**
  * Common PipeWire components
  */
@@ -77,12 +72,6 @@ struct obs_pw_audio_info {
 	enum audio_format format;
 	enum speaker_layout speakers;
 };
-
-void obs_channels_to_spa_audio_position(uint32_t *position, uint32_t channels);
-enum audio_format spa_to_obs_audio_format(enum spa_audio_format format);
-enum speaker_layout spa_to_obs_speakers(uint32_t channels);
-bool spa_to_obs_pw_audio_info(struct obs_pw_audio_info *info,
-			      const struct spa_pod *param);
 
 /**
  * PipeWire stream wrapper that outputs to an OBS source

@@ -791,12 +791,12 @@ static void pipewire_audio_capture_app_update(void *data, obs_data_t *settings)
 {
 	struct obs_pw_audio_capture_app *pwac = data;
 
-	pw_thread_loop_lock(pwac->pw.thread_loop);
-
 	bool except = obs_data_get_bool(settings, "ExceptApp");
 
 	const char *new_target_name =
 		obs_data_get_string(settings, "TargetName");
+
+	pw_thread_loop_lock(pwac->pw.thread_loop);
 
 	if (except == pwac->except_app &&
 	    (!new_target_name || !*new_target_name ||

@@ -167,15 +167,30 @@ static inline uint64_t audio_frames_to_nanosecs(uint32_t sample_rate,
 void obs_channels_to_spa_audio_position(uint32_t *position, uint32_t channels)
 {
 	switch (channels) {
-	case 8:
+	case 1:
+		position[0] = SPA_AUDIO_CHANNEL_MONO;
+		break;
+	case 2:
+		position[0] = SPA_AUDIO_CHANNEL_FL;
+		position[1] = SPA_AUDIO_CHANNEL_FR;
+		break;
+	case 3:
+		position[0] = SPA_AUDIO_CHANNEL_FL;
+		position[1] = SPA_AUDIO_CHANNEL_FR;
+		position[2] = SPA_AUDIO_CHANNEL_LFE;
+		break;
+	case 4:
+		position[0] = SPA_AUDIO_CHANNEL_FL;
+		position[1] = SPA_AUDIO_CHANNEL_FR;
+		position[2] = SPA_AUDIO_CHANNEL_FC;
+		position[3] = SPA_AUDIO_CHANNEL_RC;
+		break;
+	case 5:
 		position[0] = SPA_AUDIO_CHANNEL_FL;
 		position[1] = SPA_AUDIO_CHANNEL_FR;
 		position[2] = SPA_AUDIO_CHANNEL_FC;
 		position[3] = SPA_AUDIO_CHANNEL_LFE;
-		position[4] = SPA_AUDIO_CHANNEL_RL;
-		position[5] = SPA_AUDIO_CHANNEL_RR;
-		position[6] = SPA_AUDIO_CHANNEL_SL;
-		position[7] = SPA_AUDIO_CHANNEL_SR;
+		position[4] = SPA_AUDIO_CHANNEL_RC;
 		break;
 	case 6:
 		position[0] = SPA_AUDIO_CHANNEL_FL;
@@ -185,30 +200,15 @@ void obs_channels_to_spa_audio_position(uint32_t *position, uint32_t channels)
 		position[4] = SPA_AUDIO_CHANNEL_RL;
 		position[5] = SPA_AUDIO_CHANNEL_RR;
 		break;
-	case 5:
+	case 8:
 		position[0] = SPA_AUDIO_CHANNEL_FL;
 		position[1] = SPA_AUDIO_CHANNEL_FR;
 		position[2] = SPA_AUDIO_CHANNEL_FC;
 		position[3] = SPA_AUDIO_CHANNEL_LFE;
-		position[4] = SPA_AUDIO_CHANNEL_RC;
-		break;
-	case 4:
-		position[0] = SPA_AUDIO_CHANNEL_FL;
-		position[1] = SPA_AUDIO_CHANNEL_FR;
-		position[2] = SPA_AUDIO_CHANNEL_FC;
-		position[3] = SPA_AUDIO_CHANNEL_RC;
-		break;
-	case 3:
-		position[0] = SPA_AUDIO_CHANNEL_FL;
-		position[1] = SPA_AUDIO_CHANNEL_FR;
-		position[2] = SPA_AUDIO_CHANNEL_LFE;
-		break;
-	case 2:
-		position[0] = SPA_AUDIO_CHANNEL_FL;
-		position[1] = SPA_AUDIO_CHANNEL_FR;
-		break;
-	case 1:
-		position[0] = SPA_AUDIO_CHANNEL_MONO;
+		position[4] = SPA_AUDIO_CHANNEL_RL;
+		position[5] = SPA_AUDIO_CHANNEL_RR;
+		position[6] = SPA_AUDIO_CHANNEL_SL;
+		position[7] = SPA_AUDIO_CHANNEL_SR;
 		break;
 	default:
 		for (size_t i = 0; i < channels; i++) {
@@ -262,6 +262,10 @@ bool spa_to_obs_pw_audio_info(struct obs_pw_audio_info *info,
 	struct spa_audio_info_raw audio_info;
 
 	if (spa_format_audio_raw_parse(param, &audio_info) < 0) {
+		info->frame_size = 0;
+		info->sample_rate = 0;
+		info->format = AUDIO_FORMAT_UNKNOWN;
+		info->speakers = SPEAKERS_UNKNOWN;
 		return false;
 	}
 
@@ -348,10 +352,6 @@ static void on_param_changed_cb(void *data, uint32_t id,
 		blog(LOG_WARNING,
 		     "[pipewire] Stream %p failed to parse audio format info",
 		     s->stream);
-		s->info.sample_rate = 0;
-		s->info.speakers = SPEAKERS_UNKNOWN;
-		s->info.format = AUDIO_FORMAT_UNKNOWN;
-		s->info.frame_size = 0;
 	} else {
 		blog(LOG_INFO,
 		     "[pipewire] %p Got format: rate %u - channels %u - format %u - frame size %u",

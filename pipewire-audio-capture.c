@@ -166,10 +166,6 @@ static void node_destroy_cb(void *data)
 
 	spa_hook_remove(&n->node_listener);
 
-	if (n->pwac->default_info.node_id == n->id) {
-		n->pwac->default_info.node_id = SPA_ID_INVALID;
-	}
-
 	bfree((void *)n->friendly_name);
 	bfree((void *)n->name);
 }
@@ -279,6 +275,10 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions,
 static void on_global_remove_cb(void *data, uint32_t id)
 {
 	struct obs_pw_audio_capture *pwac = data;
+
+	if (pwac->default_info.node_id == id) {
+		pwac->default_info.node_id = SPA_ID_INVALID;
+	}
 
 	/** If the node we're connected to is removed,
 	  * try to find one with the same name and connect to it. */
@@ -411,19 +411,18 @@ static void pipewire_audio_capture_update(void *data, obs_data_t *settings)
 {
 	struct obs_pw_audio_capture *pwac = data;
 
-	pw_thread_loop_lock(pwac->pw.thread_loop);
-
 	uint32_t new_node_id = obs_data_get_int(settings, "TargetId");
+
+	pw_thread_loop_lock(pwac->pw.thread_loop);
 
 	if (new_node_id == PW_ID_ANY) {
 		pwac->default_info.autoconnect = true;
 
 		if (pwac->default_info.node_id != SPA_ID_INVALID) {
-			struct target_node *n = get_node_by_id(
-				pwac, pwac->default_info.node_id);
-			if (n) {
-				start_streaming(pwac, n);
-			}
+			start_streaming(
+				pwac,
+				get_node_by_id(pwac,
+					       pwac->default_info.node_id));
 		}
 		goto unlock;
 	}
