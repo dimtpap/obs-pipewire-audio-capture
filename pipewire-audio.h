@@ -23,7 +23,6 @@
 #pragma once
 
 #include <obs-module.h>
-#include <util/util_uint64.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/extensions/metadata.h>

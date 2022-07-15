@@ -18,13 +18,9 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-#include <obs-module.h>
-#include <util/dstr.h>
-
-#include <pipewire/pipewire.h>
-#include <pipewire/extensions/metadata.h>
-
 #include "pipewire-audio.h"
+
+#include <util/dstr.h>
 
 /** Source for capturing applciation audio using PipeWire */
 

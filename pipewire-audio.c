@@ -20,12 +20,8 @@
 
 #include "pipewire-audio.h"
 
-#include <obs-module.h>
 #include <util/platform.h>
 
-#include <pipewire/pipewire.h>
-#include <pipewire/extensions/metadata.h>
-#include <spa/param/audio/format-utils.h>
 #include <spa/utils/json.h>
 
 /** Utilities */
