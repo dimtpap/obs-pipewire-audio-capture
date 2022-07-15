@@ -128,20 +128,26 @@ struct pw_properties *obs_pw_audio_stream_properties(bool capture_sink);
 /**
  * PipeWire metadata
  */
-struct obs_pw_audio_metadata {
+struct obs_pw_audio_default_node_metadata {
 	struct pw_proxy *proxy;
 	struct spa_hook proxy_listener;
 	struct spa_hook metadata_listener;
+
+	bool wants_sink;
+
+	void (*default_node_callback)(void *data, const char *name);
+	void *data;
 };
 
 /**
  * Add listeners to the metadata
  * @return true on success, false on error
  */
-bool obs_pw_audio_metadata_listen(
-	struct obs_pw_audio_metadata *metadata,
-	struct obs_pw_audio_instance *pw, uint32_t global_id,
-	const struct pw_metadata_events *metadata_events, void *data);
+bool obs_pw_audio_default_node_metadata_listen(
+	struct obs_pw_audio_default_node_metadata *metadata,
+	struct obs_pw_audio_instance *pw, uint32_t global_id, bool wants_sink,
+	void (*default_node_callback)(void *data, const char *name),
+	void *data);
 /* ------------------------------------------------- */
 
 /**

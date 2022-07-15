@@ -458,15 +458,44 @@ struct pw_properties *obs_pw_audio_stream_properties(bool capture_sink)
 /* ------------------------------------------------- */
 
 /* PipeWire metadata */
+
+static int on_metadata_property_cb(void *data, uint32_t id, const char *key,
+				   const char *type, const char *value)
+{
+	UNUSED_PARAMETER(type);
+
+	struct obs_pw_audio_default_node_metadata *metadata = data;
+
+	if (metadata->default_node_callback && id == PW_ID_CORE && key &&
+	    value &&
+	    strcmp(key, metadata->wants_sink ? "default.audio.sink"
+					     : "default.audio.source") == 0) {
+		char val[128];
+		if (!json_object_find(value, "name", val, sizeof(val)) ||
+		    !*val) {
+			return 0;
+		}
+
+		metadata->default_node_callback(metadata->data, val);
+	}
+
+	return 0;
+}
+
+static const struct pw_metadata_events metadata_events = {
+	PW_VERSION_METADATA_EVENTS,
+	.property = on_metadata_property_cb,
+};
+
 static void on_metadata_proxy_removed_cb(void *data)
 {
-	struct obs_pw_audio_metadata *metadata = data;
+	struct obs_pw_audio_default_node_metadata *metadata = data;
 	pw_proxy_destroy(metadata->proxy);
 }
 
 static void on_metadata_proxy_destroy_cb(void *data)
 {
-	struct obs_pw_audio_metadata *metadata = data;
+	struct obs_pw_audio_default_node_metadata *metadata = data;
 
 	spa_hook_remove(&metadata->metadata_listener);
 	spa_hook_remove(&metadata->proxy_listener);
@@ -482,10 +511,10 @@ static const struct pw_proxy_events metadata_proxy_events = {
 	.destroy = on_metadata_proxy_destroy_cb,
 };
 
-bool obs_pw_audio_metadata_listen(
-	struct obs_pw_audio_metadata *metadata,
-	struct obs_pw_audio_instance *pw, uint32_t global_id,
-	const struct pw_metadata_events *metadata_events, void *data)
+bool obs_pw_audio_default_node_metadata_listen(
+	struct obs_pw_audio_default_node_metadata *metadata,
+	struct obs_pw_audio_instance *pw, uint32_t global_id, bool wants_sink,
+	void (*default_node_callback)(void *data, const char *name), void *data)
 {
 	if (metadata->proxy) {
 		pw_proxy_destroy(metadata->proxy);
@@ -500,9 +529,14 @@ bool obs_pw_audio_metadata_listen(
 
 	metadata->proxy = metadata_proxy;
 
+	metadata->wants_sink = wants_sink;
+
+	metadata->default_node_callback = default_node_callback;
+	metadata->data = data;
+
 	pw_proxy_add_object_listener(metadata->proxy,
 				     &metadata->metadata_listener,
-				     metadata_events, data);
+				     &metadata_events, metadata);
 	pw_proxy_add_listener(metadata->proxy, &metadata->proxy_listener,
 			      &metadata_proxy_events, metadata);
 

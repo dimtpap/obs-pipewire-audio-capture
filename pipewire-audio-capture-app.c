@@ -83,7 +83,7 @@ struct obs_pw_audio_capture_app {
 	  * the app capture sink with the same audio channels */
 	struct spa_list system_sinks;
 	struct {
-		struct obs_pw_audio_metadata metadata;
+		struct obs_pw_audio_default_node_metadata metadata;
 		struct pw_proxy *sink;
 		struct spa_hook sink_listener;
 		struct spa_hook sink_proxy_listener;
@@ -527,72 +527,53 @@ static void on_default_sink_proxy_destroy_cb(void *data)
 }
 
 static const struct pw_proxy_events default_sink_proxy_events = {
-	PW_VERSION_NODE_EVENTS,
+	PW_VERSION_PROXY_EVENTS,
 	.removed = on_default_sink_proxy_removed_cb,
 	.destroy = on_default_sink_proxy_destroy_cb,
 };
 
-static int on_metadata_property_cb(void *data, uint32_t id, const char *key,
-				   const char *type, const char *value)
+static void default_node_cb(void *data, const char *name)
 {
-	UNUSED_PARAMETER(type);
-
 	struct obs_pw_audio_capture_app *pwac = data;
 
-	if (id == PW_ID_CORE && key && value &&
-	    strcmp(key, "default.audio.sink") == 0) {
+	blog(LOG_DEBUG, "[pipewire] New default sink %s", name);
 
-		char val[128];
-		if (!json_object_find(value, "name", val, sizeof(val))) {
-			return 0;
+	/** Find the new default sink and bind to it to get its channel info */
+	struct system_sink *t, *s = NULL;
+	spa_list_for_each(t, &pwac->system_sinks, obj.link)
+	{
+		if (strcmp(name, t->name) == 0) {
+			s = t;
+			break;
 		}
-
-		blog(LOG_DEBUG, "[pipewire] New default sink %s", val);
-
-		/** Find the new default sink and bind to it to get its channel info */
-		struct system_sink *t, *s = NULL;
-		spa_list_for_each(t, &pwac->system_sinks, obj.link)
-		{
-			if (strcmp(val, t->name) == 0) {
-				s = t;
-				break;
-			}
-		}
-		if (!s) {
-			return 0;
-		}
-
-		if (pwac->default_info.sink) {
-			pw_proxy_destroy(pwac->default_info.sink);
-		}
-
-		pwac->default_info.sink = pw_registry_bind(
-			pwac->pw.registry, s->id, PW_TYPE_INTERFACE_Node,
-			PW_VERSION_NODE, 0);
-		if (!pwac->default_info.sink) {
-			if (!pwac->sink.proxy) {
-				blog(LOG_WARNING,
-				     "[pipewire] Failed to get default sink info, app capture sink defaulting to stereo");
-				make_capture_sink(pwac, 2, "FL,FR");
-			}
-			return 0;
-		}
-
-		pw_proxy_add_object_listener(pwac->default_info.sink,
-					     &pwac->default_info.sink_listener,
-					     &default_sink_events, pwac);
-		pw_proxy_add_listener(pwac->default_info.sink,
-				      &pwac->default_info.sink_proxy_listener,
-				      &default_sink_proxy_events, pwac);
+	}
+	if (!s) {
+		return;
 	}
 
-	return 0;
-}
+	if (pwac->default_info.sink) {
+		pw_proxy_destroy(pwac->default_info.sink);
+	}
 
-static const struct pw_metadata_events metadata_events = {
-	PW_VERSION_METADATA_EVENTS,
-	.property = on_metadata_property_cb,
-};
+	pwac->default_info.sink = pw_registry_bind(pwac->pw.registry, s->id,
+						   PW_TYPE_INTERFACE_Node,
+						   PW_VERSION_NODE, 0);
+	if (!pwac->default_info.sink) {
+		if (!pwac->sink.proxy) {
+			blog(LOG_WARNING,
+			     "[pipewire] Failed to get default sink info, app capture sink defaulting to stereo");
+			make_capture_sink(pwac, 2, "FL,FR");
+		}
+		return;
+	}
+
+	pw_proxy_add_object_listener(pwac->default_info.sink,
+				     &pwac->default_info.sink_listener,
+				     &default_sink_events, pwac);
+	pw_proxy_add_listener(pwac->default_info.sink,
+			      &pwac->default_info.sink_proxy_listener,
+			      &default_sink_proxy_events, pwac);
+}
 /* ------------------------------------------------- */
 
 /* Registry */
@@ -676,9 +657,9 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions,
 			return;
 		}
 
-		if (!obs_pw_audio_metadata_listen(&pwac->default_info.metadata,
-						  &pwac->pw, id,
-						  &metadata_events, pwac) &&
+		if (!obs_pw_audio_default_node_metadata_listen(
+			    &pwac->default_info.metadata, &pwac->pw, id, true,
+			    default_node_cb, pwac) &&
 		    !pwac->sink.proxy) {
 			blog(LOG_WARNING,
 			     "[pipewire] Failed to get default metadata, app capture sink defaulting to stereo");

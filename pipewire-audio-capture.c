@@ -51,7 +51,7 @@ struct obs_pw_audio_capture {
 	struct obs_pw_audio_stream audio;
 
 	struct {
-		struct obs_pw_audio_metadata metadata;
+		struct obs_pw_audio_default_node_metadata metadata;
 		bool autoconnect;
 		uint32_t node_id;
 		struct dstr name;
@@ -201,43 +201,22 @@ static void register_target_node(struct obs_pw_audio_capture *pwac,
 }
 
 /* Default device metadata */
-static int on_metadata_property_cb(void *data, uint32_t id, const char *key,
-				   const char *type, const char *value)
+static void default_node_cb(void *data, const char *name)
 {
-	UNUSED_PARAMETER(type);
-
 	struct obs_pw_audio_capture *pwac = data;
 
-	if (id == PW_ID_CORE && key && value &&
-	    strcmp(key, pwac->capture_type == PIPEWIRE_AUDIO_CAPTURE_OUTPUT
-				? "default.audio.sink"
-				: "default.audio.source") == 0) {
+	blog(LOG_DEBUG, "[pipewire] New default device %s", name);
 
-		char val[128];
-		if (!json_object_find(value, "name", val, sizeof(val))) {
-			return 0;
-		}
+	dstr_copy(&pwac->default_info.name, name);
 
-		blog(LOG_DEBUG, "[pipewire] New default device %s", val);
-
-		dstr_copy(&pwac->default_info.name, val);
-
-		struct target_node *n = get_node_by_name(pwac, val);
-		if (n) {
-			pwac->default_info.node_id = n->id;
-			if (pwac->default_info.autoconnect) {
-				start_streaming(pwac, n);
-			}
+	struct target_node *n = get_node_by_name(pwac, name);
+	if (n) {
+		pwac->default_info.node_id = n->id;
+		if (pwac->default_info.autoconnect) {
+			start_streaming(pwac, n);
 		}
 	}
-
-	return 0;
 }
-
-static const struct pw_metadata_events metadata_events = {
-	PW_VERSION_METADATA_EVENTS,
-	.property = on_metadata_property_cb,
-};
 /* ------------------------------------------------- */
 
 /* Registry */
@@ -287,9 +266,10 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions,
 			return;
 		}
 
-		if (!obs_pw_audio_metadata_listen(&pwac->default_info.metadata,
-						  &pwac->pw, id,
-						  &metadata_events, pwac)) {
+		if (!obs_pw_audio_default_node_metadata_listen(
+			    &pwac->default_info.metadata, &pwac->pw, id,
+			    pwac->capture_type == PIPEWIRE_AUDIO_CAPTURE_OUTPUT,
+			    default_node_cb, pwac)) {
 			blog(LOG_WARNING,
 			     "[pipewire] Failed to get default metadata, cannot detect default audio devices");
 		}
