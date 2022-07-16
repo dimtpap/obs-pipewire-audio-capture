@@ -5,7 +5,9 @@ This plugin adds 3 sources for capturing audio outputs, inputs and applications 
 Get the `linux-pipewire-audio-(version).tar.gz` archive from the [latest release](https://github.com/dimtpap/obs-pipewire-audio-capture/releases/latest)  
 If OBS Studio is installed as a
 - Regular package: Extract the archive in `~/.config/obs-studio/plugins/`
-- Flatpak: Extract the archive in `~/.var/app/com.obsproject.Studio/config/obs-studio/plugins/`
+- Flatpak: Extract the archive in `~/.var/app/com.obsproject.Studio/config/obs-studio/plugins/`  
+  Note: If the plugin isn't working try running OBS using `flatpak run --filesystem=xdg-run/pipewire-0 com.obsproject.Studio`
+  or run `flatpak override --filesystem=xdg-run/pipewire-0 com.obsproject.Studio` and then open OBS as usual
 
 ## Building and installing
 Ensure you have PipeWire and OBS Studio development packages, then run these commands
