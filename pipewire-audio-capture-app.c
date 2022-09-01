@@ -32,8 +32,8 @@ struct target_node_port {
 };
 
 struct target_node {
-	const char *friendly_name;
 	const char *name;
+	const char *app_name;
 	const char *binary;
 	uint32_t id;
 	struct spa_list ports;
@@ -116,13 +116,13 @@ static void register_system_sink(struct obs_pw_audio_capture_app *pwac,
 		return;
 	}
 
-	struct system_sink *s = bmalloc(sizeof(struct system_sink));
-	s->name = bstrdup(name);
-	s->id = global_id;
+	struct system_sink *sink = bmalloc(sizeof(struct system_sink));
+	sink->name = bstrdup(name);
+	sink->id = global_id;
 
-	obs_pw_audio_proxied_object_init(&s->obj, sink_proxy,
+	obs_pw_audio_proxied_object_init(&sink->obj, sink_proxy,
 					 &pwac->system_sinks, NULL,
-					 system_sink_destroy_cb, s);
+					 system_sink_destroy_cb, sink);
 }
 /* ------------------------------------------------- */
 
@@ -148,7 +148,7 @@ static void node_destroy_cb(void *data)
 	(*node->p_n_targets)--;
 
 	bfree((void *)node->binary);
-	bfree((void *)node->friendly_name);
+	bfree((void *)node->app_name);
 	bfree((void *)node->name);
 }
 
@@ -164,14 +164,15 @@ static struct target_node_port *node_register_port(struct target_node *node,
 		return NULL;
 	}
 
-	struct target_node_port *p = bmalloc(sizeof(struct target_node_port));
-	p->channel = bstrdup(channel);
-	p->id = global_id;
+	struct target_node_port *port =
+		bmalloc(sizeof(struct target_node_port));
+	port->channel = bstrdup(channel);
+	port->id = global_id;
 
-	obs_pw_audio_proxied_object_init(&p->obj, port_proxy, &node->ports,
-					 NULL, port_destroy_cb, p);
+	obs_pw_audio_proxied_object_init(&port->obj, port_proxy, &node->ports,
+					 NULL, port_destroy_cb, port);
 
-	return p;
+	return port;
 }
 
 static void on_node_info_cb(void *data, const struct pw_node_info *info)
@@ -197,7 +198,7 @@ static const struct pw_node_events node_events = {
 };
 
 static void register_target_node(struct obs_pw_audio_capture_app *pwac,
-				 uint32_t global_id, const char *friendly_name,
+				 uint32_t global_id, const char *app_name,
 				 const char *name)
 {
 	struct pw_proxy *node_proxy =
@@ -208,8 +209,8 @@ static void register_target_node(struct obs_pw_audio_capture_app *pwac,
 	}
 
 	struct target_node *node = bmalloc(sizeof(struct target_node));
-	node->friendly_name = bstrdup(friendly_name);
 	node->name = bstrdup(name);
+	node->app_name = bstrdup(app_name);
 	node->binary = NULL;
 	node->id = global_id;
 	node->p_n_targets = &pwac->n_targets;
@@ -231,7 +232,7 @@ static bool node_is_targeted(struct obs_pw_audio_capture_app *pwac,
 	}
 
 	return (dstr_cmpi(&pwac->target_name, node->binary) == 0 ||
-		dstr_cmpi(&pwac->target_name, node->friendly_name) == 0 ||
+		dstr_cmpi(&pwac->target_name, node->app_name) == 0 ||
 		dstr_cmpi(&pwac->target_name, node->name) == 0) ^
 	       pwac->except_app;
 }
@@ -240,15 +241,14 @@ static bool node_is_targeted(struct obs_pw_audio_capture_app *pwac,
 /** App streams <-> Capture sink links */
 static void link_bound_cb(void *data, uint32_t global_id)
 {
-	struct capture_sink_link *l = data;
-	l->id = global_id;
+	struct capture_sink_link *link = data;
+	link->id = global_id;
 }
 
 static void link_destroy_cb(void *data)
 {
-	struct capture_sink_link *l = data;
-
-	blog(LOG_DEBUG, "[pipewire] Link %u destroyed", l->id);
+	struct capture_sink_link *link = data;
+	blog(LOG_DEBUG, "[pipewire] Link %u destroyed", link->id);
 }
 
 static void link_port_to_sink(struct obs_pw_audio_capture_app *pwac,
@@ -303,11 +303,13 @@ static void link_port_to_sink(struct obs_pw_audio_capture_app *pwac,
 		return;
 	}
 
-	struct capture_sink_link *l = bmalloc(sizeof(struct capture_sink_link));
-	l->id = SPA_ID_INVALID;
+	struct capture_sink_link *link =
+		bmalloc(sizeof(struct capture_sink_link));
+	link->id = SPA_ID_INVALID;
 
-	obs_pw_audio_proxied_object_init(&l->obj, link_proxy, &pwac->sink.links,
-					 link_bound_cb, link_destroy_cb, l);
+	obs_pw_audio_proxied_object_init(&link->obj, link_proxy,
+					 &pwac->sink.links, link_bound_cb,
+					 link_destroy_cb, link);
 
 	obs_pw_audio_instance_sync(&pwac->pw);
 }
@@ -389,9 +391,9 @@ static const struct pw_proxy_events sink_proxy_events = {
 static void register_capture_sink_port(struct obs_pw_audio_capture_app *pwac,
 				       uint32_t global_id, const char *channel)
 {
-	struct capture_sink_port *p = da_push_back_new(pwac->sink.ports);
-	p->channel = bstrdup(channel);
-	p->id = global_id;
+	struct capture_sink_port *port = da_push_back_new(pwac->sink.ports);
+	port->channel = bstrdup(channel);
+	port->id = global_id;
 }
 
 static void destroy_sink_links(struct obs_pw_audio_capture_app *pwac)
@@ -678,14 +680,14 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions,
 
 		if (strcmp(media_class, "Stream/Output/Audio") == 0) {
 			/** Target node */
-			const char *node_friendly_name =
+			const char *node_app_name =
 				spa_dict_lookup(props, PW_KEY_APP_NAME);
 
-			if (!node_friendly_name) {
-				node_friendly_name = node_name;
+			if (!node_app_name) {
+				node_app_name = node_name;
 			}
 
-			register_target_node(pwac, id, node_friendly_name,
+			register_target_node(pwac, id, node_app_name,
 					     node_name);
 		} else if (strcmp(media_class, "Audio/Sink") == 0) {
 			register_system_sink(pwac, id, node_name);
@@ -801,7 +803,7 @@ static obs_properties_t *pipewire_audio_capture_app_properties(void *data)
 	spa_list_for_each(node, &pwac->targets, obj.link)
 	{
 		struct targets_arr_entry *t = da_push_back_new(targets_arr);
-		t->name = node->binary ? node->binary : node->friendly_name;
+		t->name = node->binary ? node->binary : node->app_name;
 		t->val = node->binary ? node->binary : node->name;
 	}
 
