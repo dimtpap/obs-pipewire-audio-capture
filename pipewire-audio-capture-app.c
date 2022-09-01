@@ -230,16 +230,10 @@ static bool node_is_targeted(struct obs_pw_audio_capture_app *pwac,
 		return false;
 	}
 
-	const char *cmp;
-	if (node->binary) {
-		cmp = node->binary;
-	} else if (node->name) {
-		cmp = node->name;
-	} else {
-		return false;
-	}
-
-	return (dstr_cmpi(&pwac->target_name, cmp) == 0) ^ pwac->except_app;
+	return (dstr_cmpi(&pwac->target_name, node->binary) == 0 ||
+		dstr_cmpi(&pwac->target_name, node->friendly_name) == 0 ||
+		dstr_cmpi(&pwac->target_name, node->name) == 0) ^
+	       pwac->except_app;
 }
 /* ------------------------------------------------- */
 
