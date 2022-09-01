@@ -107,7 +107,7 @@ static void system_sink_destroy_cb(void *data)
 }
 
 static void register_system_sink(struct obs_pw_audio_capture_app *pwac,
-				 const char *name, uint32_t global_id)
+				 uint32_t global_id, const char *name)
 {
 	struct pw_proxy *sink_proxy =
 		pw_registry_bind(pwac->pw.registry, global_id,
@@ -153,8 +153,8 @@ static void node_destroy_cb(void *data)
 }
 
 static struct target_node_port *node_register_port(struct target_node *node,
-						   struct pw_registry *registry,
 						   uint32_t global_id,
+						   struct pw_registry *registry,
 						   const char *channel)
 {
 	struct pw_proxy *port_proxy = pw_registry_bind(registry, global_id,
@@ -197,8 +197,8 @@ static const struct pw_node_events node_events = {
 };
 
 static void register_target_node(struct obs_pw_audio_capture_app *pwac,
-				 const char *friendly_name, const char *name,
-				 uint32_t global_id)
+				 uint32_t global_id, const char *friendly_name,
+				 const char *name)
 {
 	struct pw_proxy *node_proxy =
 		pw_registry_bind(pwac->pw.registry, global_id,
@@ -387,7 +387,7 @@ static const struct pw_proxy_events sink_proxy_events = {
 };
 
 static void register_capture_sink_port(struct obs_pw_audio_capture_app *pwac,
-				       const char *channel, uint32_t global_id)
+				       uint32_t global_id, const char *channel)
 {
 	struct capture_sink_port *p = da_push_back_new(pwac->sink.ports);
 	p->channel = bstrdup(channel);
@@ -645,7 +645,7 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions,
 		uint32_t node_id = atoi(nid);
 
 		if (astrcmpi(dir, "in") == 0 && node_id == pwac->sink.id) {
-			register_capture_sink_port(pwac, chn, id);
+			register_capture_sink_port(pwac, id, chn);
 		} else if (astrcmpi(dir, "out") == 0) {
 			/** Possibly a target port */
 			struct target_node *t, *n = NULL;
@@ -661,7 +661,7 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions,
 			}
 
 			struct target_node_port *p = node_register_port(
-				n, pwac->pw.registry, id, chn);
+				n, id, pwac->pw.registry, chn);
 
 			if (p && pwac->sink.autoconnect_targets &&
 			    node_is_targeted(pwac, n)) {
@@ -685,10 +685,10 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions,
 				node_friendly_name = node_name;
 			}
 
-			register_target_node(pwac, node_friendly_name,
-					     node_name, id);
+			register_target_node(pwac, id, node_friendly_name,
+					     node_name);
 		} else if (strcmp(media_class, "Audio/Sink") == 0) {
-			register_system_sink(pwac, node_name, id);
+			register_system_sink(pwac, id, node_name);
 		}
 	} else if (strcmp(type, PW_TYPE_INTERFACE_Metadata) == 0) {
 		const char *name = spa_dict_lookup(props, PW_KEY_METADATA_NAME);
