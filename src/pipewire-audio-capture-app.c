@@ -697,16 +697,11 @@ static void pipewire_audio_capture_app_defaults(obs_data_t *settings)
 	obs_data_set_bool(settings, "ExceptApp", false);
 }
 
-struct targets_arr_entry {
-	const char *name;
-	const char *val;
-};
-
 static int cmp_targets(const void *a, const void *b)
 {
-	const struct targets_arr_entry *ta = a;
-	const struct targets_arr_entry *tb = b;
-	return strcmp(ta->val, tb->val);
+	const char *a_str = *(char **)a;
+	const char *b_str = *(char **)b;
+	return strcmp(a_str, b_str);
 }
 
 static obs_properties_t *pipewire_audio_capture_app_properties(void *data)
@@ -715,12 +710,12 @@ static obs_properties_t *pipewire_audio_capture_app_properties(void *data)
 
 	obs_properties_t *p = obs_properties_create();
 
-	obs_property_t *targets_list = obs_properties_add_list(p, "TargetName", obs_module_text("Application"),
-														   OBS_COMBO_TYPE_EDITABLE, OBS_COMBO_FORMAT_STRING);
+	obs_property_t *targets_prop_list = obs_properties_add_list(p, "TargetName", obs_module_text("Application"),
+																OBS_COMBO_TYPE_EDITABLE, OBS_COMBO_FORMAT_STRING);
 
 	obs_properties_add_bool(p, "ExceptApp", obs_module_text("ExceptApp"));
 
-	DARRAY(struct targets_arr_entry) targets_arr;
+	DARRAY(char *) targets_arr;
 	da_init(targets_arr);
 
 	pw_thread_loop_lock(pwac->pw.thread_loop);
@@ -730,18 +725,16 @@ static obs_properties_t *pipewire_audio_capture_app_properties(void *data)
 	struct target_node *node;
 	spa_list_for_each(node, &pwac->targets, obj.link)
 	{
-		struct targets_arr_entry *t = da_push_back_new(targets_arr);
-		t->name = node->binary ? node->binary : node->app_name;
-		t->val = node->binary ? node->binary : node->name;
+		da_push_back(targets_arr, node->binary ? &node->binary : node->app_name ? &node->app_name : &node->name);
 	}
 
 	/** Only show one entry per app */
 
-	qsort(targets_arr.array, targets_arr.num, sizeof(struct targets_arr_entry), cmp_targets);
+	qsort(targets_arr.array, targets_arr.num, sizeof(char *), cmp_targets);
 
 	for (size_t i = 0; i < targets_arr.num; i++) {
-		if (i == 0 || strcmp(targets_arr.array[i - 1].val, targets_arr.array[i].val) != 0) {
-			obs_property_list_add_string(targets_list, targets_arr.array[i].name, targets_arr.array[i].val);
+		if (i == 0 || strcmp(targets_arr.array[i - 1], targets_arr.array[i]) != 0) {
+			obs_property_list_add_string(targets_prop_list, targets_arr.array[i], NULL);
 		}
 	}
 
