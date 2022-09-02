@@ -89,10 +89,8 @@ struct obs_pw_audio_stream {
  * Initialize a stream
  * @return true on success, false on error
  */
-bool obs_pw_audio_stream_init(struct obs_pw_audio_stream *s,
-			      struct obs_pw_audio_instance *pw,
-			      struct pw_properties *props,
-			      obs_source_t *output);
+bool obs_pw_audio_stream_init(struct obs_pw_audio_stream *s, struct obs_pw_audio_instance *pw,
+							  struct pw_properties *props, obs_source_t *output);
 
 /**
  * Destroy a stream
@@ -103,10 +101,8 @@ void obs_pw_audio_stream_destroy(struct obs_pw_audio_stream *s);
  * Connect a stream with the default params
  * @return 0 on success, < 0 on error
  */
-int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s,
-				enum spa_direction direction,
-				uint32_t target_id, enum pw_stream_flags flags,
-				uint32_t channels);
+int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, enum spa_direction direction, uint32_t target_id,
+								enum pw_stream_flags flags, uint32_t channels);
 
 /**
  * Default PipeWire stream properties
@@ -132,11 +128,9 @@ struct obs_pw_audio_default_node_metadata {
  * Add listeners to the metadata
  * @return true on success, false on error
  */
-bool obs_pw_audio_default_node_metadata_listen(
-	struct obs_pw_audio_default_node_metadata *metadata,
-	struct obs_pw_audio_instance *pw, uint32_t global_id, bool wants_sink,
-	void (*default_node_callback)(void *data, const char *name),
-	void *data);
+bool obs_pw_audio_default_node_metadata_listen(struct obs_pw_audio_default_node_metadata *metadata,
+											   struct obs_pw_audio_instance *pw, uint32_t global_id, bool wants_sink,
+											   void (*default_node_callback)(void *data, const char *name), void *data);
 /* ------------------------------------------------- */
 
 /**
@@ -157,11 +151,9 @@ struct obs_pw_audio_proxied_object {
 /**
  * Initialize a proxied object
  */
-void obs_pw_audio_proxied_object_init(
-	struct obs_pw_audio_proxied_object *obj, struct pw_proxy *proxy,
-	struct spa_list *list,
-	void (*bound_callback)(void *data, uint32_t global_id),
-	void (*destroy_callback)(void *data), void *data);
+void obs_pw_audio_proxied_object_init(struct obs_pw_audio_proxied_object *obj, struct pw_proxy *proxy,
+									  struct spa_list *list, void (*bound_callback)(void *data, uint32_t global_id),
+									  void (*destroy_callback)(void *data), void *data);
 
 /* Sources */
 
