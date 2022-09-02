@@ -2,11 +2,11 @@ cmake_minimum_required(VERSION 3.10)
 project(linux-pipewire-audio)
 
 set(linux-pipewire-audio_SOURCES
-			linux-pipewire-audio.c
-			pipewire-audio.h
-			pipewire-audio.c
-			pipewire-audio-capture.c
-			pipewire-audio-capture-app.c
+			src/linux-pipewire-audio.c
+			src/pipewire-audio.h
+			src/pipewire-audio.c
+			src/pipewire-audio-capture.c
+			src/pipewire-audio-capture-app.c
 )
 
 add_library(linux-pipewire-audio MODULE ${linux-pipewire-audio_SOURCES})
