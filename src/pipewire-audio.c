@@ -419,11 +419,12 @@ int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, enum spa_directio
 	return pw_stream_connect(s->stream, direction, target_id, flags, params, 1);
 }
 
-struct pw_properties *obs_pw_audio_stream_properties(bool capture_sink)
+struct pw_properties *obs_pw_audio_stream_properties(bool capture_sink, bool want_driver)
 {
 	return pw_properties_new(PW_KEY_NODE_NAME, "OBS Studio", PW_KEY_NODE_DESCRIPTION, "OBS Audio Capture",
 							 PW_KEY_APP_NAME, "OBS Studio", PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY,
-							 "Capture", PW_KEY_MEDIA_ROLE, "Production", PW_KEY_STREAM_CAPTURE_SINK,
+							 "Capture", PW_KEY_MEDIA_ROLE, "Production", PW_KEY_NODE_WANT_DRIVER,
+							 want_driver ? "true" : "false", PW_KEY_STREAM_CAPTURE_SINK,
 							 capture_sink ? "true" : "false", NULL);
 }
 /* ------------------------------------------------- */

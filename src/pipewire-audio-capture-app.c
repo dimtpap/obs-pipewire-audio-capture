@@ -396,7 +396,8 @@ static bool make_capture_sink(struct obs_pw_audio_capture_app *pwac, uint32_t ch
 	struct pw_properties *sink_props =
 		pw_properties_new(PW_KEY_NODE_NAME, "OBS", PW_KEY_NODE_DESCRIPTION, "OBS App Audio Capture Sink",
 						  PW_KEY_FACTORY_NAME, "support.null-audio-sink", PW_KEY_MEDIA_CLASS, "Audio/Sink/Virtual",
-						  PW_KEY_NODE_VIRTUAL, "true", SPA_KEY_AUDIO_POSITION, position, NULL);
+						  PW_KEY_NODE_VIRTUAL, "true", PW_KEY_NODE_WANT_DRIVER, "true", PW_KEY_NODE_DRIVER, "false",
+						  PW_KEY_NODE_PAUSE_ON_IDLE, "false", SPA_KEY_AUDIO_POSITION, position, NULL);
 
 	pw_properties_setf(sink_props, PW_KEY_AUDIO_CHANNELS, "%u", channels);
 
@@ -678,7 +679,7 @@ static void *pipewire_audio_capture_app_create(obs_data_t *settings, obs_source_
 
 	pw_registry_add_listener(pwac->pw.registry, &pwac->pw.registry_listener, &registry_events, pwac);
 
-	struct pw_properties *stream_props = obs_pw_audio_stream_properties(true);
+	struct pw_properties *stream_props = obs_pw_audio_stream_properties(true, false);
 	if (obs_pw_audio_stream_init(&pwac->audio, &pwac->pw, stream_props, source)) {
 		blog(LOG_INFO, "[pipewire] Created stream %p", pwac->audio.stream);
 	} else {

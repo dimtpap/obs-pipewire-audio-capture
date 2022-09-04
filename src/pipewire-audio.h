@@ -107,7 +107,7 @@ int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, enum spa_directio
 /**
  * Default PipeWire stream properties
  */
-struct pw_properties *obs_pw_audio_stream_properties(bool capture_sink);
+struct pw_properties *obs_pw_audio_stream_properties(bool capture_sink, bool want_driver);
 /* ------------------------------------------------- */
 
 /**
