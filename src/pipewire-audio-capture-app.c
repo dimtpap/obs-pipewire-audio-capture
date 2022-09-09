@@ -695,7 +695,7 @@ static void *pipewire_audio_capture_app_create(obs_data_t *settings, obs_source_
 
 static void pipewire_audio_capture_app_defaults(obs_data_t *settings)
 {
-	obs_data_set_bool(settings, "ExceptApp", false);
+	obs_data_set_default_bool(settings, "ExceptApp", false);
 }
 
 static int cmp_targets(const void *a, const void *b)
