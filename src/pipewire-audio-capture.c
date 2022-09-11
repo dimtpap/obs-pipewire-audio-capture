@@ -69,6 +69,14 @@ static void start_streaming(struct obs_pw_audio_capture *pwac, struct target_nod
 		return;
 	}
 
+	dstr_copy(&pwac->target_name, node->name);
+
+	if (node->id == pwac->connected_id &&
+		pw_stream_get_state(pwac->audio.stream, NULL) != PW_STREAM_STATE_UNCONNECTED) {
+		/** Already connected to this node */
+		return;
+	}
+
 	if (pw_stream_get_state(pwac->audio.stream, NULL) != PW_STREAM_STATE_UNCONNECTED) {
 		pw_stream_disconnect(pwac->audio.stream);
 	}
@@ -388,17 +396,9 @@ static void pipewire_audio_capture_update(void *data, obs_data_t *settings)
 		goto unlock;
 	}
 
-	dstr_copy(&pwac->target_name, new_node->name);
+	start_streaming(pwac, new_node);
 
 	obs_data_set_string(settings, "TargetName", new_node->name);
-
-	if (new_node->id == pwac->connected_id &&
-		pw_stream_get_state(pwac->audio.stream, NULL) != PW_STREAM_STATE_UNCONNECTED) {
-		/** Already connected to this node */
-		goto unlock;
-	}
-
-	start_streaming(pwac, new_node);
 
 unlock:
 	pw_thread_loop_unlock(pwac->pw.thread_loop);
