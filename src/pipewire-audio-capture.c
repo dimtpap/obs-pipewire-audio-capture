@@ -269,10 +269,7 @@ static void on_global_remove_cb(void *data, uint32_t id)
 		pw_stream_disconnect(pwac->audio.stream);
 
 		if (!pwac->default_info.autoconnect && !dstr_is_empty(&pwac->target_name)) {
-			struct target_node *new_node = get_node_by_name(pwac, pwac->target_name.array);
-			if (new_node) {
-				start_streaming(pwac, new_node);
-			}
+			start_streaming(pwac, get_node_by_name(pwac, pwac->target_name.array));
 		}
 	}
 }
