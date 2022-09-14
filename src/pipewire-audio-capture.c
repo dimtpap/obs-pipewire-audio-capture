@@ -395,7 +395,7 @@ static void pipewire_audio_capture_update(void *data, obs_data_t *settings)
 
 	start_streaming(pwac, new_node);
 
-	obs_data_set_string(settings, "TargetName", new_node->name);
+	obs_data_set_string(settings, "TargetName", pwac->target_name.array);
 
 unlock:
 	pw_thread_loop_unlock(pwac->pw.thread_loop);

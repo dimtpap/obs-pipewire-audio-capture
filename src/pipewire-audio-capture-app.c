@@ -95,7 +95,7 @@ struct obs_pw_audio_capture_app {
 	struct spa_list targets;
 	size_t n_targets;
 
-	struct dstr target_name;
+	struct dstr target;
 	bool except_app;
 };
 
@@ -211,12 +211,12 @@ static void register_target_node(struct obs_pw_audio_capture_app *pwac, uint32_t
 
 static bool node_is_targeted(struct obs_pw_audio_capture_app *pwac, struct target_node *node)
 {
-	if (dstr_is_empty(&pwac->target_name)) {
+	if (dstr_is_empty(&pwac->target)) {
 		return false;
 	}
 
-	return (dstr_cmpi(&pwac->target_name, node->binary) == 0 || dstr_cmpi(&pwac->target_name, node->app_name) == 0 ||
-			dstr_cmpi(&pwac->target_name, node->name) == 0) ^
+	return (dstr_cmpi(&pwac->target, node->binary) == 0 || dstr_cmpi(&pwac->target, node->app_name) == 0 ||
+			dstr_cmpi(&pwac->target, node->name) == 0) ^
 		   pwac->except_app;
 }
 /* ------------------------------------------------- */
@@ -370,15 +370,21 @@ static void destroy_sink_links(struct obs_pw_audio_capture_app *pwac)
 	}
 }
 
-static void connect_targets(struct obs_pw_audio_capture_app *pwac)
+static void connect_targets(struct obs_pw_audio_capture_app *pwac, const char *target, bool except)
 {
+	pwac->except_app = except;
+
+	if (target && *target) {
+		dstr_copy(&pwac->target, target);
+	}
+
 	if (!pwac->sink.proxy) {
 		return;
 	}
 
 	destroy_sink_links(pwac);
 
-	if (dstr_is_empty(&pwac->target_name)) {
+	if (dstr_is_empty(&pwac->target)) {
 		return;
 	}
 
@@ -428,7 +434,7 @@ static bool make_capture_sink(struct obs_pw_audio_capture_app *pwac, uint32_t ch
 	blog(LOG_INFO, "[pipewire] Created app capture sink %u with %u channels and position %s", pwac->sink.id, channels,
 		 position);
 
-	connect_targets(pwac);
+	connect_targets(pwac, NULL, pwac->except_app);
 
 	pwac->sink.autoconnect_targets = true;
 
@@ -672,7 +678,7 @@ static void *pipewire_audio_capture_app_create(obs_data_t *settings, obs_source_
 	pwac->sink.id = SPA_ID_INVALID;
 	dstr_init(&pwac->sink.position);
 
-	dstr_init_copy(&pwac->target_name, obs_data_get_string(settings, "TargetName"));
+	dstr_init_copy(&pwac->target, obs_data_get_string(settings, "TargetName"));
 	pwac->except_app = obs_data_get_bool(settings, "ExceptApp");
 
 	pw_thread_loop_lock(pwac->pw.thread_loop);
@@ -752,27 +758,19 @@ static void pipewire_audio_capture_app_update(void *data, obs_data_t *settings)
 
 	bool except = obs_data_get_bool(settings, "ExceptApp");
 
-	const char *new_target_name = obs_data_get_string(settings, "TargetName");
+	const char *new_target = obs_data_get_string(settings, "TargetName");
 
 	pw_thread_loop_lock(pwac->pw.thread_loop);
 
-	if (except == pwac->except_app &&
-		(!new_target_name || !*new_target_name || dstr_cmpi(&pwac->target_name, new_target_name) == 0)) {
-		goto unlock;
+	if (except == pwac->except_app && dstr_cmpi(&pwac->target, new_target) == 0) {
+		pw_thread_loop_unlock(pwac->pw.thread_loop);
+		return;
 	}
 
-	pwac->except_app = except;
-
-	if (new_target_name && *new_target_name) {
-		dstr_copy(&pwac->target_name, new_target_name);
-	}
-
-	connect_targets(pwac);
+	connect_targets(pwac, new_target, except);
 
 	obs_pw_audio_instance_sync(&pwac->pw);
 	pw_thread_loop_wait(pwac->pw.thread_loop);
-
-unlock:
 	pw_thread_loop_unlock(pwac->pw.thread_loop);
 }
 
@@ -827,7 +825,7 @@ static void pipewire_audio_capture_app_destroy(void *data)
 	obs_pw_audio_instance_destroy(&pwac->pw);
 
 	dstr_free(&pwac->sink.position);
-	dstr_free(&pwac->target_name);
+	dstr_free(&pwac->target);
 
 	bfree(pwac);
 }
