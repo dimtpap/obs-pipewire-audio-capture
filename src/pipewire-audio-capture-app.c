@@ -167,7 +167,7 @@ static struct target_node_port *node_register_port(struct target_node *node, uin
 
 static void on_node_info_cb(void *data, const struct pw_node_info *info)
 {
-	if (!info->props || !info->props->n_items) {
+	if ((info->change_mask & PW_NODE_CHANGE_MASK_PROPS) == 0 || !info->props || !info->props->n_items) {
 		return;
 	}
 
@@ -467,11 +467,11 @@ static void destroy_capture_sink(struct obs_pw_audio_capture_app *pwac)
 /* Default system sink */
 static void on_default_sink_info_cb(void *data, const struct pw_node_info *info)
 {
-	struct obs_pw_audio_capture_app *pwac = data;
-
-	if (!info->props || !info->props->n_items) {
+	if ((info->change_mask & PW_NODE_CHANGE_MASK_PROPS) == 0 || !info->props || !info->props->n_items) {
 		return;
 	}
+
+	struct obs_pw_audio_capture_app *pwac = data;
 
 	/** Use stereo if
 	  * - The default sink uses the Pro Audio profile, since all streams will be configured to use stereo

@@ -120,7 +120,7 @@ struct target_node *get_node_by_id(struct obs_pw_audio_capture *pwac, uint32_t i
 /* Target node */
 static void on_node_info_cb(void *data, const struct pw_node_info *info)
 {
-	if (!info->props || !info->props->n_items) {
+	if ((info->change_mask & PW_NODE_CHANGE_MASK_PROPS) == 0 || !info->props || !info->props->n_items) {
 		return;
 	}
 
