@@ -23,9 +23,9 @@
 #include <util/dstr.h>
 
 /** Source for capturing device audio using PipeWire */
-enum obs_pw_audio_capture_type {
-	PIPEWIRE_AUDIO_CAPTURE_INPUT,
-	PIPEWIRE_AUDIO_CAPTURE_OUTPUT,
+enum obs_pw_audio_capture_device_type {
+	PIPEWIRE_AUDIO_CAPTURE_DEVICE_INPUT,
+	PIPEWIRE_AUDIO_CAPTURE_DEVICE_OUTPUT,
 };
 
 struct target_node {
@@ -44,7 +44,7 @@ struct target_node {
 struct obs_pw_audio_capture_device {
 	obs_source_t *source;
 
-	enum obs_pw_audio_capture_type capture_type;
+	enum obs_pw_audio_capture_device_type capture_type;
 
 	struct obs_pw_audio_instance pw;
 
@@ -226,9 +226,9 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions, const ch
 		}
 
 		/** Target device */
-		if ((pwac->capture_type == PIPEWIRE_AUDIO_CAPTURE_INPUT &&
+		if ((pwac->capture_type == PIPEWIRE_AUDIO_CAPTURE_DEVICE_INPUT &&
 			 (strcmp(media_class, "Audio/Source") == 0 || strcmp(media_class, "Audio/Source/Virtual") == 0)) ||
-			(pwac->capture_type == PIPEWIRE_AUDIO_CAPTURE_OUTPUT && strcmp(media_class, "Audio/Sink") == 0)) {
+			(pwac->capture_type == PIPEWIRE_AUDIO_CAPTURE_DEVICE_OUTPUT && strcmp(media_class, "Audio/Sink") == 0)) {
 			const char *node_friendly_name = spa_dict_lookup(props, PW_KEY_NODE_NICK);
 			if (!node_friendly_name) {
 				node_friendly_name = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION);
@@ -246,7 +246,7 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions, const ch
 		}
 
 		if (!obs_pw_audio_default_node_metadata_listen(&pwac->default_info.metadata, &pwac->pw, id,
-													   pwac->capture_type == PIPEWIRE_AUDIO_CAPTURE_OUTPUT,
+													   pwac->capture_type == PIPEWIRE_AUDIO_CAPTURE_DEVICE_OUTPUT,
 													   default_node_cb, pwac)) {
 			blog(LOG_WARNING, "[pipewire] Failed to get default metadata, cannot detect default audio devices");
 		}
@@ -283,7 +283,7 @@ static const struct pw_registry_events registry_events = {
 
 /* Source */
 static void *pipewire_audio_capture_create(obs_data_t *settings, obs_source_t *source,
-										   enum obs_pw_audio_capture_type capture_type)
+										   enum obs_pw_audio_capture_device_type capture_type)
 {
 	struct obs_pw_audio_capture_device *pwac = bzalloc(sizeof(struct obs_pw_audio_capture_device));
 
@@ -317,7 +317,8 @@ static void *pipewire_audio_capture_create(obs_data_t *settings, obs_source_t *s
 
 	pw_registry_add_listener(pwac->pw.registry, &pwac->pw.registry_listener, &registry_events, pwac);
 
-	struct pw_properties *props = obs_pw_audio_stream_properties(capture_type == PIPEWIRE_AUDIO_CAPTURE_OUTPUT, true);
+	struct pw_properties *props =
+		obs_pw_audio_stream_properties(capture_type == PIPEWIRE_AUDIO_CAPTURE_DEVICE_OUTPUT, true);
 	if (obs_pw_audio_stream_init(&pwac->audio, &pwac->pw, props, pwac->source)) {
 		blog(LOG_INFO, "[pipewire] Created stream %p", pwac->audio.stream);
 	} else {
@@ -333,11 +334,11 @@ static void *pipewire_audio_capture_create(obs_data_t *settings, obs_source_t *s
 
 static void *pipewire_audio_capture_input_create(obs_data_t *settings, obs_source_t *source)
 {
-	return pipewire_audio_capture_create(settings, source, PIPEWIRE_AUDIO_CAPTURE_INPUT);
+	return pipewire_audio_capture_create(settings, source, PIPEWIRE_AUDIO_CAPTURE_DEVICE_INPUT);
 }
 static void *pipewire_audio_capture_output_create(obs_data_t *settings, obs_source_t *source)
 {
-	return pipewire_audio_capture_create(settings, source, PIPEWIRE_AUDIO_CAPTURE_OUTPUT);
+	return pipewire_audio_capture_create(settings, source, PIPEWIRE_AUDIO_CAPTURE_DEVICE_OUTPUT);
 }
 
 static void pipewire_audio_capture_defaults(obs_data_t *settings)
