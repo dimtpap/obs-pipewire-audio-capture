@@ -851,7 +851,7 @@ void pipewire_audio_capture_app_load(void)
 		.show = pipewire_audio_capture_app_show,
 		.hide = pipewire_audio_capture_app_hide,
 		.destroy = pipewire_audio_capture_app_destroy,
-		.icon_type = OBS_ICON_TYPE_AUDIO_OUTPUT,
+		.icon_type = OBS_ICON_TYPE_PROCESS_AUDIO_OUTPUT,
 	};
 
 	obs_register_source(&pipewire_audio_capture_application);
