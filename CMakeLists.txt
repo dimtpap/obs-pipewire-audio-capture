@@ -5,7 +5,7 @@ set(linux-pipewire-audio_SOURCES
 			src/linux-pipewire-audio.c
 			src/pipewire-audio.h
 			src/pipewire-audio.c
-			src/pipewire-audio-capture.c
+			src/pipewire-audio-capture-device.c
 			src/pipewire-audio-capture-app.c
 )
 

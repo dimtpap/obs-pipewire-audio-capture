@@ -36,12 +36,12 @@ struct target_node {
 
 	struct spa_hook node_listener;
 
-	struct obs_pw_audio_capture *pwac;
+	struct obs_pw_audio_capture_device *pwac;
 
 	struct obs_pw_audio_proxied_object obj;
 };
 
-struct obs_pw_audio_capture {
+struct obs_pw_audio_capture_device {
 	obs_source_t *source;
 
 	enum obs_pw_audio_capture_type capture_type;
@@ -63,7 +63,7 @@ struct obs_pw_audio_capture {
 	uint32_t connected_id;
 };
 
-static void start_streaming(struct obs_pw_audio_capture *pwac, struct target_node *node)
+static void start_streaming(struct obs_pw_audio_capture_device *pwac, struct target_node *node)
 {
 	if (!pwac->audio.stream || !node || !node->channels) {
 		return;
@@ -93,7 +93,7 @@ static void start_streaming(struct obs_pw_audio_capture *pwac, struct target_nod
 	pw_stream_set_active(pwac->audio.stream, obs_source_active(pwac->source));
 }
 
-struct target_node *get_node_by_name(struct obs_pw_audio_capture *pwac, const char *name)
+struct target_node *get_node_by_name(struct obs_pw_audio_capture_device *pwac, const char *name)
 {
 	struct target_node *n;
 	spa_list_for_each(n, &pwac->targets, obj.link)
@@ -105,7 +105,7 @@ struct target_node *get_node_by_name(struct obs_pw_audio_capture *pwac, const ch
 	return NULL;
 }
 
-struct target_node *get_node_by_id(struct obs_pw_audio_capture *pwac, uint32_t id)
+struct target_node *get_node_by_id(struct obs_pw_audio_capture_device *pwac, uint32_t id)
 {
 	struct target_node *n;
 	spa_list_for_each(n, &pwac->targets, obj.link)
@@ -137,7 +137,7 @@ static void on_node_info_cb(void *data, const struct pw_node_info *info)
 	}
 	n->channels = c;
 
-	struct obs_pw_audio_capture *pwac = n->pwac;
+	struct obs_pw_audio_capture_device *pwac = n->pwac;
 
 	/** If this is the default device and the stream is not already connected to it
 	  * or the stream is unconnected and this node has the desired target name */
@@ -164,7 +164,7 @@ static void node_destroy_cb(void *data)
 	bfree((void *)n->name);
 }
 
-static void register_target_node(struct obs_pw_audio_capture *pwac, const char *friendly_name, const char *name,
+static void register_target_node(struct obs_pw_audio_capture_device *pwac, const char *friendly_name, const char *name,
 								 uint32_t global_id)
 {
 	struct pw_proxy *node_proxy =
@@ -189,7 +189,7 @@ static void register_target_node(struct obs_pw_audio_capture *pwac, const char *
 /* Default device metadata */
 static void default_node_cb(void *data, const char *name)
 {
-	struct obs_pw_audio_capture *pwac = data;
+	struct obs_pw_audio_capture_device *pwac = data;
 
 	blog(LOG_DEBUG, "[pipewire] New default device %s", name);
 
@@ -212,7 +212,7 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions, const ch
 	UNUSED_PARAMETER(permissions);
 	UNUSED_PARAMETER(version);
 
-	struct obs_pw_audio_capture *pwac = data;
+	struct obs_pw_audio_capture_device *pwac = data;
 
 	if (!props || !type) {
 		return;
@@ -255,7 +255,7 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions, const ch
 
 static void on_global_remove_cb(void *data, uint32_t id)
 {
-	struct obs_pw_audio_capture *pwac = data;
+	struct obs_pw_audio_capture_device *pwac = data;
 
 	if (pwac->default_info.node_id == id) {
 		pwac->default_info.node_id = SPA_ID_INVALID;
@@ -285,7 +285,7 @@ static const struct pw_registry_events registry_events = {
 static void *pipewire_audio_capture_create(obs_data_t *settings, obs_source_t *source,
 										   enum obs_pw_audio_capture_type capture_type)
 {
-	struct obs_pw_audio_capture *pwac = bzalloc(sizeof(struct obs_pw_audio_capture));
+	struct obs_pw_audio_capture_device *pwac = bzalloc(sizeof(struct obs_pw_audio_capture_device));
 
 	if (!obs_pw_audio_instance_init(&pwac->pw)) {
 		pw_thread_loop_lock(pwac->pw.thread_loop);
@@ -347,7 +347,7 @@ static void pipewire_audio_capture_defaults(obs_data_t *settings)
 
 static obs_properties_t *pipewire_audio_capture_properties(void *data)
 {
-	struct obs_pw_audio_capture *pwac = data;
+	struct obs_pw_audio_capture_device *pwac = data;
 
 	obs_properties_t *p = obs_properties_create();
 
@@ -371,7 +371,7 @@ static obs_properties_t *pipewire_audio_capture_properties(void *data)
 
 static void pipewire_audio_capture_update(void *data, obs_data_t *settings)
 {
-	struct obs_pw_audio_capture *pwac = data;
+	struct obs_pw_audio_capture_device *pwac = data;
 
 	uint32_t new_node_id = obs_data_get_int(settings, "TargetId");
 
@@ -403,7 +403,7 @@ unlock:
 
 static void pipewire_audio_capture_show(void *data)
 {
-	struct obs_pw_audio_capture *pwac = data;
+	struct obs_pw_audio_capture_device *pwac = data;
 
 	if (pwac->audio.stream) {
 		pw_stream_set_active(pwac->audio.stream, true);
@@ -412,7 +412,7 @@ static void pipewire_audio_capture_show(void *data)
 
 static void pipewire_audio_capture_hide(void *data)
 {
-	struct obs_pw_audio_capture *pwac = data;
+	struct obs_pw_audio_capture_device *pwac = data;
 
 	if (pwac->audio.stream) {
 		pw_stream_set_active(pwac->audio.stream, false);
@@ -421,7 +421,7 @@ static void pipewire_audio_capture_hide(void *data)
 
 static void pipewire_audio_capture_destroy(void *data)
 {
-	struct obs_pw_audio_capture *pwac = data;
+	struct obs_pw_audio_capture_device *pwac = data;
 
 	pw_thread_loop_lock(pwac->pw.thread_loop);
 
