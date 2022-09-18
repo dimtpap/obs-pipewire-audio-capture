@@ -455,6 +455,10 @@ static void destroy_capture_sink(struct obs_pw_audio_capture_app *pwac)
 {
 	/** Links are automatically destroyed by PipeWire */
 
+	if (!pwac->sink.proxy) {
+		return;
+	}
+
 	if (pwac->audio.stream) {
 		pw_stream_disconnect(pwac->audio.stream);
 	}
@@ -503,9 +507,8 @@ static void on_default_sink_info_cb(void *data, const struct pw_node_info *info)
 		return;
 	}
 
-	if (pwac->sink.proxy) {
-		destroy_capture_sink(pwac);
-	}
+	destroy_capture_sink(pwac);
+
 	make_capture_sink(pwac, c, position);
 }
 
@@ -811,9 +814,7 @@ static void pipewire_audio_capture_app_destroy(void *data)
 
 	obs_pw_audio_stream_destroy(&pwac->audio);
 
-	if (pwac->sink.proxy) {
-		destroy_capture_sink(pwac);
-	}
+	destroy_capture_sink(pwac);
 
 	if (pwac->default_info.sink) {
 		pw_proxy_destroy(pwac->default_info.sink);
