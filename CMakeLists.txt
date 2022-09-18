@@ -13,7 +13,7 @@ add_library(linux-pipewire-audio MODULE ${linux-pipewire-audio_SOURCES})
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
-find_package(LibObs REQUIRED)
+find_package(libobs REQUIRED)
 find_package(PipeWire REQUIRED)
 
 set(linux-pipewire-audio_INCLUDES
@@ -26,7 +26,7 @@ add_definitions(
 )
 
 set(linux-pipewire-audio_LIBRARIES
-	libobs
+	OBS::libobs
 	${PIPEWIRE_LIBRARIES}
 )
 
