@@ -139,26 +139,6 @@ void obs_pw_audio_instance_sync(struct obs_pw_audio_instance *pw)
 /* ------------------------------------------------- */
 
 /* PipeWire stream wrapper */
-static uint32_t obs_audio_format_sample_size(enum audio_format audio_format)
-{
-	switch (audio_format) {
-	case AUDIO_FORMAT_U8BIT:
-		return 1;
-	case AUDIO_FORMAT_16BIT:
-		return 2;
-	case AUDIO_FORMAT_32BIT:
-	case AUDIO_FORMAT_FLOAT:
-		return 4;
-	default:
-		return 2;
-	}
-}
-
-static inline uint64_t audio_frames_to_nanosecs(uint32_t sample_rate, uint32_t frames)
-{
-	return util_mul_div64(frames, SPA_NSEC_PER_SEC, sample_rate);
-}
-
 void obs_channels_to_spa_audio_position(uint32_t *position, uint32_t channels)
 {
 	switch (channels) {
@@ -266,7 +246,7 @@ bool spa_to_obs_pw_audio_info(struct obs_pw_audio_info *info, const struct spa_p
 	info->sample_rate = audio_info.rate;
 	info->speakers = spa_to_obs_speakers(audio_info.channels);
 	info->format = spa_to_obs_audio_format(audio_info.format);
-	info->frame_size = obs_audio_format_sample_size(info->format) * audio_info.channels;
+	info->frame_size = get_audio_bytes_per_channel(info->format) * audio_info.channels;
 
 	return true;
 }
@@ -308,7 +288,7 @@ static void on_process_cb(void *data)
 
 		out.timestamp = now - (uint64_t)(period_usecs * 1000);
 	} else {
-		out.timestamp = now - audio_frames_to_nanosecs(out.frames, s->info.sample_rate);
+		out.timestamp = now - audio_frames_to_ns(s->info.sample_rate, out.frames);
 	}
 
 	obs_source_output_audio(s->output, &out);
