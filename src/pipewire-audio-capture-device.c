@@ -71,13 +71,11 @@ static void start_streaming(struct obs_pw_audio_capture_device *pwac, struct tar
 
 	dstr_copy(&pwac->target_name, node->name);
 
-	if (node->id == pwac->connected_id &&
-		pw_stream_get_state(pwac->audio.stream, NULL) != PW_STREAM_STATE_UNCONNECTED) {
-		/** Already connected to this node */
-		return;
-	}
-
 	if (pw_stream_get_state(pwac->audio.stream, NULL) != PW_STREAM_STATE_UNCONNECTED) {
+		if (node->id == pwac->connected_id) {
+			/** Already connected to this node */
+			return;
+		}
 		pw_stream_disconnect(pwac->audio.stream);
 	}
 
