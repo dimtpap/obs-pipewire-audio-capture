@@ -356,7 +356,7 @@ bool obs_pw_audio_stream_init(struct obs_pw_audio_stream *s, struct obs_pw_audio
 							  struct pw_properties *props, obs_source_t *output)
 {
 	s->output = output;
-	s->stream = pw_stream_new(pw->core, "OBS Studio", props);
+	s->stream = pw_stream_new(pw->core, "OBS", props);
 
 	if (!s->stream) {
 		return false;
