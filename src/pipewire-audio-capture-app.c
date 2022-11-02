@@ -442,8 +442,9 @@ static bool make_capture_sink(struct obs_pw_audio_capture_app *pwac, uint32_t ch
 		return true;
 	}
 
-	if (obs_pw_audio_stream_connect(&pwac->audio, PW_DIRECTION_INPUT, pwac->sink.id,
-									PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS, channels) < 0) {
+	if (obs_pw_audio_stream_connect(
+			&pwac->audio, PW_DIRECTION_INPUT, pwac->sink.id,
+			PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS | PW_STREAM_FLAG_DONT_RECONNECT, channels) < 0) {
 		blog(LOG_WARNING, "[pipewire] Error connecting stream %p to app capture sink %u", pwac->audio.stream,
 			 pwac->sink.id);
 	}

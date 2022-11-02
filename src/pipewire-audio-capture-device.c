@@ -80,7 +80,9 @@ static void start_streaming(struct obs_pw_audio_capture_device *pwac, struct tar
 	}
 
 	if (obs_pw_audio_stream_connect(&pwac->audio, PW_DIRECTION_INPUT, node->id,
-									PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS, node->channels) == 0) {
+									PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS |
+										PW_STREAM_FLAG_DONT_RECONNECT,
+									node->channels) == 0) {
 		pwac->connected_id = node->id;
 		blog(LOG_INFO, "[pipewire] %p streaming from %u", pwac->audio.stream, node->id);
 	} else {
