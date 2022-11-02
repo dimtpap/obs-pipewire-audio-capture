@@ -129,7 +129,7 @@ static void on_node_info_cb(void *data, const struct pw_node_info *info)
 		return;
 	}
 
-	uint32_t c = atoi(channels);
+	uint32_t c = strtoul(channels, NULL, 10);
 
 	struct target_node *n = data;
 	if (n->channels == c) {

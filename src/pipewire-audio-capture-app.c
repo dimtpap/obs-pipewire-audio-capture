@@ -497,7 +497,7 @@ static void on_default_sink_info_cb(void *data, const struct pw_node_info *info)
 		position = "FL,FR";
 	}
 
-	uint32_t c = atoi(channels);
+	uint32_t c = strtoul(channels, NULL, 10);
 	if (!c) {
 		return;
 	}
@@ -598,7 +598,7 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions, const ch
 			return;
 		}
 
-		uint32_t node_id = atoi(nid);
+		uint32_t node_id = strtoul(nid, NULL, 10);
 
 		if (astrcmpi(dir, "in") == 0 && node_id == pwac->sink.id) {
 			register_capture_sink_port(pwac, id, chn);
