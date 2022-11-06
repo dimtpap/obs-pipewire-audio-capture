@@ -240,6 +240,7 @@ bool spa_to_obs_pw_audio_info(struct obs_pw_audio_info *info, const struct spa_p
 		info->sample_rate = 0;
 		info->format = AUDIO_FORMAT_UNKNOWN;
 		info->speakers = SPEAKERS_UNKNOWN;
+
 		return false;
 	}
 
@@ -280,7 +281,7 @@ static void on_process_cb(void *data)
 	if (s->pos && (s->info.sample_rate * s->pos->clock.rate_diff)) {
 		/** Taken from PipeWire's implementation of JACK's jack_get_cycle_times
 		  * (https://gitlab.freedesktop.org/pipewire/pipewire/-/blob/0.3.52/pipewire-jack/src/pipewire-jack.c#L5639)
-	   	  * which is used in the linux-jack plugin to correctly set the timestamp
+		  * which is used in the linux-jack plugin to correctly set the timestamp
 		  * (https://github.com/obsproject/obs-studio/blob/27.2.4/plugins/linux-jack/jack-wrapper.c#L87) */
 
 		float period_usecs =

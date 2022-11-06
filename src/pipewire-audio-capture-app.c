@@ -374,7 +374,7 @@ static void connect_targets(struct obs_pw_audio_capture_app *pwac, const char *t
 {
 	pwac->except_app = except;
 
-	if (target && *target) {
+	if (target) {
 		dstr_copy(&pwac->target, target);
 	}
 
