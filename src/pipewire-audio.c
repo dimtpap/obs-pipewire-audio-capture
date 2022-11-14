@@ -24,10 +24,10 @@
 
 #include <spa/utils/json.h>
 
-/** Utilities */
+/* Utilities */
 bool json_object_find(const char *obj, const char *key, char *value, size_t len)
 {
-	/** From PipeWire's source */
+	/* From PipeWire's source */
 
 	struct spa_json it[2];
 	const char *v;
@@ -51,7 +51,7 @@ bool json_object_find(const char *obj, const char *key, char *value, size_t len)
 }
 /* ------------------------------------------------- */
 
-/** Common PipeWire components */
+/* Common PipeWire components */
 static void on_core_done_cb(void *data, uint32_t id, int seq)
 {
 	struct obs_pw_audio_instance *pw = data;
@@ -410,7 +410,6 @@ struct pw_properties *obs_pw_audio_stream_properties(bool capture_sink, bool wan
 /* ------------------------------------------------- */
 
 /* PipeWire metadata */
-
 static int on_metadata_property_cb(void *data, uint32_t id, const char *key, const char *type, const char *value)
 {
 	UNUSED_PARAMETER(type);
@@ -487,7 +486,7 @@ bool obs_pw_audio_default_node_metadata_listen(struct obs_pw_audio_default_node_
 }
 /* ------------------------------------------------- */
 
-/** Proxied objects */
+/* Proxied objects */
 static void on_proxy_bound_cb(void *data, uint32_t global_id)
 {
 	struct obs_pw_audio_proxied_object *obj = data;

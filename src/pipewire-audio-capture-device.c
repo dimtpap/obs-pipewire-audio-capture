@@ -336,6 +336,7 @@ static void *pipewire_audio_capture_input_create(obs_data_t *settings, obs_sourc
 {
 	return pipewire_audio_capture_create(settings, source, PIPEWIRE_AUDIO_CAPTURE_DEVICE_INPUT);
 }
+
 static void *pipewire_audio_capture_output_create(obs_data_t *settings, obs_source_t *source)
 {
 	return pipewire_audio_capture_create(settings, source, PIPEWIRE_AUDIO_CAPTURE_DEVICE_OUTPUT);
@@ -451,6 +452,7 @@ static const char *pipewire_audio_capture_input_name(void *data)
 	UNUSED_PARAMETER(data);
 	return obs_module_text("PipeWireAudioCaptureInput");
 }
+
 static const char *pipewire_audio_capture_output_name(void *data)
 {
 	UNUSED_PARAMETER(data);

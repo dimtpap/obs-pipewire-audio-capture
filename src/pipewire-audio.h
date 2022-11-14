@@ -18,7 +18,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-/** Stuff used by the PipeWire audio capture sources */
+/* Stuff used by the PipeWire audio capture sources */
 
 #pragma once
 
@@ -154,9 +154,9 @@ struct obs_pw_audio_proxied_object {
 void obs_pw_audio_proxied_object_init(struct obs_pw_audio_proxied_object *obj, struct pw_proxy *proxy,
 									  struct spa_list *list, void (*bound_callback)(void *data, uint32_t global_id),
 									  void (*destroy_callback)(void *data), void *data);
+/* ------------------------------------------------- */
 
 /* Sources */
-
 void pipewire_audio_capture_load(void);
 void pipewire_audio_capture_app_load(void);
 /* ------------------------------------------------- */

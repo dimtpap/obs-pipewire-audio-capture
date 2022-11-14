@@ -22,7 +22,7 @@
 
 #include <util/dstr.h>
 
-/** Source for capturing applciation audio using PipeWire */
+/* Source for capturing applciation audio using PipeWire */
 
 struct target_node_port {
 	const char *channel;
@@ -78,7 +78,7 @@ struct obs_pw_audio_capture_app {
 		struct dstr position;
 		DARRAY(struct capture_sink_port) ports;
 
-		/** Links between app streams and the capture sink */
+		/* Links between app streams and the capture sink */
 		struct spa_list links;
 	} sink;
 
@@ -99,7 +99,7 @@ struct obs_pw_audio_capture_app {
 	bool except_app;
 };
 
-/** System sinks */
+/* System sinks */
 static void system_sink_destroy_cb(void *data)
 {
 	struct system_sink *s = data;
@@ -122,7 +122,7 @@ static void register_system_sink(struct obs_pw_audio_capture_app *pwac, uint32_t
 }
 /* ------------------------------------------------- */
 
-/** Target nodes and ports */
+/* Target nodes and ports */
 static void port_destroy_cb(void *data)
 {
 	struct target_node_port *p = data;
@@ -221,7 +221,7 @@ static bool node_is_targeted(struct obs_pw_audio_capture_app *pwac, struct targe
 }
 /* ------------------------------------------------- */
 
-/** App streams <-> Capture sink links */
+/* App streams <-> Capture sink links */
 static void link_bound_cb(void *data, uint32_t global_id)
 {
 	struct capture_sink_link *link = data;
@@ -239,7 +239,7 @@ static void link_port_to_sink(struct obs_pw_audio_capture_app *pwac, struct targ
 	blog(LOG_DEBUG, "[pipewire] Connecting port %u of node %u to app capture sink", port->id, node_id);
 
 	uint32_t p = 0;
-	if (pwac->sink.channels == 1 && /** Mono capture sink */
+	if (pwac->sink.channels == 1 && /* Mono capture sink */
 		pwac->sink.ports.num >= 1) {
 		p = pwac->sink.ports.array[0].id;
 	} else {
@@ -296,7 +296,7 @@ static void link_node_to_sink(struct obs_pw_audio_capture_app *pwac, struct targ
 }
 /* ------------------------------------------------- */
 
-/** App capture sink */
+/* App capture sink */
 
 /** The app capture sink is created when there
   * is info about the system's default sink.
@@ -427,7 +427,7 @@ static bool make_capture_sink(struct obs_pw_audio_capture_app *pwac, uint32_t ch
 	obs_pw_audio_instance_sync(&pwac->pw);
 
 	while (pwac->sink.id == SPA_ID_INVALID || pwac->sink.ports.num != channels) {
-		/** Iterate until the sink is bound and all the ports are registered */
+		/* Iterate until the sink is bound and all the ports are registered */
 		pw_loop_iterate(pw_thread_loop_get_loop(pwac->pw.thread_loop), -1);
 	}
 
@@ -454,7 +454,7 @@ static bool make_capture_sink(struct obs_pw_audio_capture_app *pwac, uint32_t ch
 
 static void destroy_capture_sink(struct obs_pw_audio_capture_app *pwac)
 {
-	/** Links are automatically destroyed by PipeWire */
+	/* Links are automatically destroyed by PipeWire */
 
 	if (!pwac->sink.proxy) {
 		return;
@@ -492,7 +492,7 @@ static void on_default_sink_info_cb(void *data, const struct pw_node_info *info)
 		channels = "2";
 		position = "FL,FR";
 	} else if (astrstri(position, "AUX")) {
-		/** Pro Audio sinks use AUX0,AUX1... and so on as their position (see link above) */
+		/* Pro Audio sinks use AUX0,AUX1... and so on as their position (see link above) */
 		channels = "2";
 		position = "FL,FR";
 	}
@@ -502,7 +502,7 @@ static void on_default_sink_info_cb(void *data, const struct pw_node_info *info)
 		return;
 	}
 
-	/** No need to create a new capture sink if the channels are the same */
+	/* No need to create a new capture sink if the channels are the same */
 	if (pwac->sink.channels == c && !dstr_is_empty(&pwac->sink.position) &&
 		dstr_cmp(&pwac->sink.position, position) == 0) {
 		return;
@@ -545,7 +545,7 @@ static void default_node_cb(void *data, const char *name)
 
 	blog(LOG_DEBUG, "[pipewire] New default sink %s", name);
 
-	/** Find the new default sink and bind to it to get its channel info */
+	/* Find the new default sink and bind to it to get its channel info */
 	struct system_sink *t, *s = NULL;
 	spa_list_for_each(t, &pwac->system_sinks, obj.link)
 	{
@@ -603,7 +603,7 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions, const ch
 		if (astrcmpi(dir, "in") == 0 && node_id == pwac->sink.id) {
 			register_capture_sink_port(pwac, id, chn);
 		} else if (astrcmpi(dir, "out") == 0) {
-			/** Possibly a target port */
+			/* Possibly a target port */
 			struct target_node *t, *n = NULL;
 			spa_list_for_each(t, &pwac->targets, obj.link)
 			{
@@ -630,7 +630,7 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions, const ch
 		}
 
 		if (strcmp(media_class, "Stream/Output/Audio") == 0) {
-			/** Target node */
+			/* Target node */
 			const char *node_app_name = spa_dict_lookup(props, PW_KEY_APP_NAME);
 
 			if (!node_app_name) {
@@ -739,7 +739,7 @@ static obs_properties_t *pipewire_audio_capture_app_properties(void *data)
 		da_push_back(targets_arr, node->binary ? &node->binary : node->app_name ? &node->app_name : &node->name);
 	}
 
-	/** Only show one entry per app */
+	/* Show just one entry per app */
 
 	qsort(targets_arr.array, targets_arr.num, sizeof(char *), cmp_targets);
 
