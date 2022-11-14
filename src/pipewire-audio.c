@@ -139,7 +139,7 @@ void obs_pw_audio_instance_sync(struct obs_pw_audio_instance *pw)
 /* ------------------------------------------------- */
 
 /* PipeWire stream wrapper */
-void obs_channels_to_spa_audio_position(uint32_t *position, uint32_t channels)
+void obs_channels_to_spa_audio_position(enum spa_audio_channel *position, uint32_t channels)
 {
 	switch (channels) {
 	case 1:
@@ -381,21 +381,20 @@ void obs_pw_audio_stream_destroy(struct obs_pw_audio_stream *s)
 int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, enum spa_direction direction, uint32_t target_id,
 								enum pw_stream_flags flags, uint32_t audio_channels)
 {
-	uint32_t pos[8];
+	enum spa_audio_channel pos[8];
 	obs_channels_to_spa_audio_position(pos, audio_channels);
 
 	uint8_t buffer[2048];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	const struct spa_pod *params[1];
 
-	params[0] = spa_pod_builder_add_object(&b, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat, SPA_FORMAT_mediaType,
-										   SPA_POD_Id(SPA_MEDIA_TYPE_audio), SPA_FORMAT_mediaSubtype,
-										   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw), SPA_FORMAT_AUDIO_channels,
-										   SPA_POD_Int(audio_channels), SPA_FORMAT_AUDIO_position,
-										   SPA_POD_Array(sizeof(uint32_t), SPA_TYPE_Id, audio_channels, pos),
-										   SPA_FORMAT_AUDIO_format,
-										   SPA_POD_CHOICE_ENUM_Id(4, SPA_AUDIO_FORMAT_U8, SPA_AUDIO_FORMAT_S16_LE,
-																  SPA_AUDIO_FORMAT_S32_LE, SPA_AUDIO_FORMAT_F32_LE));
+	params[0] = spa_pod_builder_add_object(
+		&b, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat, SPA_FORMAT_mediaType, SPA_POD_Id(SPA_MEDIA_TYPE_audio),
+		SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw), SPA_FORMAT_AUDIO_channels,
+		SPA_POD_Int(audio_channels), SPA_FORMAT_AUDIO_position,
+		SPA_POD_Array(sizeof(enum spa_audio_channel), SPA_TYPE_Id, audio_channels, pos), SPA_FORMAT_AUDIO_format,
+		SPA_POD_CHOICE_ENUM_Id(4, SPA_AUDIO_FORMAT_U8, SPA_AUDIO_FORMAT_S16_LE, SPA_AUDIO_FORMAT_S32_LE,
+							   SPA_AUDIO_FORMAT_F32_LE));
 
 	return pw_stream_connect(s->stream, direction, target_id, flags, params, 1);
 }
