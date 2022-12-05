@@ -322,16 +322,6 @@ static void on_param_changed_cb(void *data, uint32_t id, const struct spa_pod *p
 		blog(LOG_INFO, "[pipewire] %p Got format: rate %u - channels %u - format %u - frame size %u", s->stream,
 			 s->info.sample_rate, s->info.speakers, s->info.format, s->info.frame_size);
 	}
-
-	uint8_t buffer[1024];
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-
-	const struct spa_pod *params[1];
-	params[0] = spa_pod_builder_add_object(&b, SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO, SPA_PARAM_IO_id,
-										   SPA_POD_Id(SPA_IO_Position), SPA_PARAM_IO_size,
-										   SPA_POD_Int(sizeof(struct spa_io_position)));
-
-	pw_stream_update_params(s->stream, params, 1);
 }
 
 static void on_io_changed_cb(void *data, uint32_t id, void *area, uint32_t size)
