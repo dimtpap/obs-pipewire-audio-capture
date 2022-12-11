@@ -68,7 +68,6 @@ void obs_pw_audio_instance_sync(struct obs_pw_audio_instance *pw);
  * Audio metadata
  */
 struct obs_pw_audio_info {
-	uint32_t frame_size;
 	uint32_t sample_rate;
 	enum audio_format format;
 	enum speaker_layout speakers;

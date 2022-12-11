@@ -200,6 +200,14 @@ enum audio_format spa_to_obs_audio_format(enum spa_audio_format format)
 		return AUDIO_FORMAT_32BIT;
 	case SPA_AUDIO_FORMAT_F32_LE:
 		return AUDIO_FORMAT_FLOAT;
+	case SPA_AUDIO_FORMAT_U8P:
+		return AUDIO_FORMAT_U8BIT_PLANAR;
+	case SPA_AUDIO_FORMAT_S16P:
+		return AUDIO_FORMAT_16BIT_PLANAR;
+	case SPA_AUDIO_FORMAT_S32P:
+		return AUDIO_FORMAT_32BIT_PLANAR;
+	case SPA_AUDIO_FORMAT_F32P:
+		return AUDIO_FORMAT_FLOAT_PLANAR;
 	default:
 		return AUDIO_FORMAT_UNKNOWN;
 	}
@@ -232,7 +240,6 @@ bool spa_to_obs_pw_audio_info(struct obs_pw_audio_info *info, const struct spa_p
 	struct spa_audio_info_raw audio_info;
 
 	if (spa_format_audio_raw_parse(param, &audio_info) < 0) {
-		info->frame_size = 0;
 		info->sample_rate = 0;
 		info->format = AUDIO_FORMAT_UNKNOWN;
 		info->speakers = SPEAKERS_UNKNOWN;
@@ -243,7 +250,6 @@ bool spa_to_obs_pw_audio_info(struct obs_pw_audio_info *info, const struct spa_p
 	info->sample_rate = audio_info.rate;
 	info->speakers = spa_to_obs_speakers(audio_info.channels);
 	info->format = spa_to_obs_audio_format(audio_info.format);
-	info->frame_size = get_audio_bytes_per_channel(info->format) * audio_info.channels;
 
 	return true;
 }
@@ -262,17 +268,20 @@ static void on_process_cb(void *data)
 
 	struct spa_buffer *buf = b->buffer;
 
-	void *d = buf->datas[0].data;
-	if (!d || !s->info.frame_size || !s->info.sample_rate || buf->datas[0].type != SPA_DATA_MemPtr) {
+	if (!s->info.sample_rate || buf->datas[0].type != SPA_DATA_MemPtr) {
 		goto queue;
 	}
 
-	struct obs_source_audio out;
-	out.data[0] = d;
-	out.frames = buf->datas[0].chunk->size / s->info.frame_size;
-	out.speakers = s->info.speakers;
-	out.format = s->info.format;
-	out.samples_per_sec = s->info.sample_rate;
+	struct obs_source_audio out = {
+		.frames = buf->datas[0].chunk->size / buf->datas[0].chunk->stride,
+		.speakers = s->info.speakers,
+		.format = s->info.format,
+		.samples_per_sec = s->info.sample_rate,
+	};
+
+	for (size_t i = 0; i < buf->n_datas || i < 8; i++) {
+		out.data[i] = buf->datas[i].data;
+	}
 
 	if (s->pos && (s->info.sample_rate * s->pos->clock.rate_diff)) {
 		/** Taken from PipeWire's implementation of JACK's jack_get_cycle_times
@@ -315,8 +324,8 @@ static void on_param_changed_cb(void *data, uint32_t id, const struct spa_pod *p
 	if (!spa_to_obs_pw_audio_info(&s->info, param)) {
 		blog(LOG_WARNING, "[pipewire] Stream %p failed to parse audio format info", s->stream);
 	} else {
-		blog(LOG_INFO, "[pipewire] %p Got format: rate %u - channels %u - format %u - frame size %u", s->stream,
-			 s->info.sample_rate, s->info.speakers, s->info.format, s->info.frame_size);
+		blog(LOG_INFO, "[pipewire] %p Got format: rate %u - channels %u - format %u", s->stream, s->info.sample_rate,
+			 s->info.speakers, s->info.format);
 	}
 }
 
@@ -379,8 +388,9 @@ int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, enum spa_directio
 		SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw), SPA_FORMAT_AUDIO_channels,
 		SPA_POD_Int(audio_channels), SPA_FORMAT_AUDIO_position,
 		SPA_POD_Array(sizeof(enum spa_audio_channel), SPA_TYPE_Id, audio_channels, pos), SPA_FORMAT_AUDIO_format,
-		SPA_POD_CHOICE_ENUM_Id(4, SPA_AUDIO_FORMAT_U8, SPA_AUDIO_FORMAT_S16_LE, SPA_AUDIO_FORMAT_S32_LE,
-							   SPA_AUDIO_FORMAT_F32_LE));
+		SPA_POD_CHOICE_ENUM_Id(8, SPA_AUDIO_FORMAT_U8, SPA_AUDIO_FORMAT_S16_LE, SPA_AUDIO_FORMAT_S32_LE,
+							   SPA_AUDIO_FORMAT_F32_LE, SPA_AUDIO_FORMAT_U8P, SPA_AUDIO_FORMAT_S16P,
+							   SPA_AUDIO_FORMAT_S32P, SPA_AUDIO_FORMAT_F32P));
 
 	return pw_stream_connect(s->stream, direction, target_id, flags, params, 1);
 }
