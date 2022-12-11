@@ -45,6 +45,7 @@ struct obs_pw_audio_instance {
 
 /**
  * Initialize a PipeWire instance
+ * @warning The thread loop is left locked
  * @return true on success, false on error
  */
 bool obs_pw_audio_instance_init(struct obs_pw_audio_instance *pw);

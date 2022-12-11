@@ -85,14 +85,12 @@ bool obs_pw_audio_instance_init(struct obs_pw_audio_instance *pw)
 
 	if (pw_thread_loop_start(pw->thread_loop) < 0) {
 		blog(LOG_WARNING, "[pipewire] Error starting threaded mainloop");
-		pw_thread_loop_unlock(pw->thread_loop);
 		return false;
 	}
 
 	pw->core = pw_context_connect(pw->context, NULL, 0);
 	if (!pw->core) {
 		blog(LOG_WARNING, "[pipewire] Error creating PipeWire core");
-		pw_thread_loop_unlock(pw->thread_loop);
 		return false;
 	}
 
@@ -100,11 +98,9 @@ bool obs_pw_audio_instance_init(struct obs_pw_audio_instance *pw)
 
 	pw->registry = pw_core_get_registry(pw->core, PW_VERSION_REGISTRY, 0);
 	if (!pw->registry) {
-		pw_thread_loop_unlock(pw->thread_loop);
 		return false;
 	}
 
-	pw_thread_loop_unlock(pw->thread_loop);
 	return true;
 }
 

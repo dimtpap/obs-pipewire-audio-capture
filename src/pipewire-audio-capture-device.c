@@ -288,7 +288,6 @@ static void *pipewire_audio_capture_create(obs_data_t *settings, obs_source_t *s
 	struct obs_pw_audio_capture_device *pwac = bzalloc(sizeof(struct obs_pw_audio_capture_device));
 
 	if (!obs_pw_audio_instance_init(&pwac->pw)) {
-		pw_thread_loop_lock(pwac->pw.thread_loop);
 		obs_pw_audio_instance_destroy(&pwac->pw);
 
 		bfree(pwac);
@@ -312,8 +311,6 @@ static void *pipewire_audio_capture_create(obs_data_t *settings, obs_source_t *s
 	}
 
 	dstr_init_copy(&pwac->target_name, obs_data_get_string(settings, "TargetName"));
-
-	pw_thread_loop_lock(pwac->pw.thread_loop);
 
 	pw_registry_add_listener(pwac->pw.registry, &pwac->pw.registry_listener, &registry_events, pwac);
 
