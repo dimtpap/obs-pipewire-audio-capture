@@ -273,7 +273,7 @@ static void on_process_cb(void *data)
 	}
 
 	struct obs_source_audio out = {
-		.frames = buf->datas[0].chunk->size / buf->datas[0].chunk->stride,
+		.frames = s->pos->clock.duration,
 		.speakers = s->info.speakers,
 		.format = s->info.format,
 		.samples_per_sec = s->info.sample_rate,
