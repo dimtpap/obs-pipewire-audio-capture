@@ -402,8 +402,7 @@ static bool make_capture_sink(struct obs_pw_audio_capture_app *pwac, uint32_t ch
 	struct pw_properties *sink_props =
 		pw_properties_new(PW_KEY_NODE_NAME, "OBS", PW_KEY_NODE_DESCRIPTION, "OBS App Audio Capture Sink",
 						  PW_KEY_FACTORY_NAME, "support.null-audio-sink", PW_KEY_MEDIA_CLASS, "Audio/Sink/Virtual",
-						  PW_KEY_NODE_VIRTUAL, "true", PW_KEY_NODE_WANT_DRIVER, "true", PW_KEY_NODE_DRIVER, "false",
-						  PW_KEY_NODE_PAUSE_ON_IDLE, "false", SPA_KEY_AUDIO_POSITION, position, NULL);
+						  PW_KEY_NODE_VIRTUAL, "true", SPA_KEY_AUDIO_POSITION, position, NULL);
 
 	pw_properties_setf(sink_props, PW_KEY_AUDIO_CHANNELS, "%u", channels);
 
