@@ -51,89 +51,6 @@ bool json_object_find(const char *obj, const char *key, char *value, size_t len)
 }
 /* ------------------------------------------------- */
 
-/* Common PipeWire components */
-static void on_core_done_cb(void *data, uint32_t id, int seq)
-{
-	struct obs_pw_audio_instance *pw = data;
-
-	if (id == PW_ID_CORE && pw->seq == seq) {
-		pw_thread_loop_signal(pw->thread_loop, false);
-	}
-}
-
-static void on_core_error_cb(void *data, uint32_t id, int seq, int res, const char *message)
-{
-	struct obs_pw_audio_instance *pw = data;
-
-	blog(LOG_ERROR, "[pipewire] Error id:%u seq:%d res:%d :%s", id, seq, res, message);
-
-	pw_thread_loop_signal(pw->thread_loop, false);
-}
-
-static const struct pw_core_events core_events = {
-	PW_VERSION_CORE_EVENTS,
-	.done = on_core_done_cb,
-	.error = on_core_error_cb,
-};
-
-bool obs_pw_audio_instance_init(struct obs_pw_audio_instance *pw)
-{
-	pw->thread_loop = pw_thread_loop_new("PipeWire thread loop", NULL);
-	pw->context = pw_context_new(pw_thread_loop_get_loop(pw->thread_loop), NULL, 0);
-
-	pw_thread_loop_lock(pw->thread_loop);
-
-	if (pw_thread_loop_start(pw->thread_loop) < 0) {
-		blog(LOG_WARNING, "[pipewire] Error starting threaded mainloop");
-		return false;
-	}
-
-	pw->core = pw_context_connect(pw->context, NULL, 0);
-	if (!pw->core) {
-		blog(LOG_WARNING, "[pipewire] Error creating PipeWire core");
-		return false;
-	}
-
-	pw_core_add_listener(pw->core, &pw->core_listener, &core_events, pw);
-
-	pw->registry = pw_core_get_registry(pw->core, PW_VERSION_REGISTRY, 0);
-	if (!pw->registry) {
-		return false;
-	}
-
-	return true;
-}
-
-void obs_pw_audio_instance_destroy(struct obs_pw_audio_instance *pw)
-{
-	if (pw->registry) {
-		spa_hook_remove(&pw->registry_listener);
-		spa_zero(pw->registry_listener);
-		pw_proxy_destroy((struct pw_proxy *)pw->registry);
-	}
-
-	pw_thread_loop_unlock(pw->thread_loop);
-	pw_thread_loop_stop(pw->thread_loop);
-
-	if (pw->core) {
-		spa_hook_remove(&pw->core_listener);
-		spa_zero(pw->core_listener);
-		pw_core_disconnect(pw->core);
-	}
-
-	if (pw->context) {
-		pw_context_destroy(pw->context);
-	}
-
-	pw_thread_loop_destroy(pw->thread_loop);
-}
-
-void obs_pw_audio_instance_sync(struct obs_pw_audio_instance *pw)
-{
-	pw->seq = pw_core_sync(pw->core, PW_ID_CORE, pw->seq);
-}
-/* ------------------------------------------------- */
-
 /* PipeWire stream wrapper */
 void obs_channels_to_spa_audio_position(enum spa_audio_channel *position, uint32_t channels)
 {
@@ -348,33 +265,7 @@ static const struct pw_stream_events stream_events = {
 	.io_changed = on_io_changed_cb,
 };
 
-bool obs_pw_audio_stream_init(struct obs_pw_audio_stream *s, struct obs_pw_audio_instance *pw,
-							  struct pw_properties *props, obs_source_t *output)
-{
-	s->output = output;
-	s->stream = pw_stream_new(pw->core, "OBS", props);
-
-	if (!s->stream) {
-		return false;
-	}
-
-	pw_stream_add_listener(s->stream, &s->stream_listener, &stream_events, s);
-	return true;
-}
-
-void obs_pw_audio_stream_destroy(struct obs_pw_audio_stream *s)
-{
-	if (s->stream) {
-		spa_hook_remove(&s->stream_listener);
-		pw_stream_disconnect(s->stream);
-		pw_stream_destroy(s->stream);
-
-		memset(s, 0, sizeof(struct obs_pw_audio_stream));
-	}
-}
-
-int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, enum spa_direction direction, uint32_t target_id,
-								enum pw_stream_flags flags, uint32_t audio_channels)
+int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, uint32_t target_id, uint32_t audio_channels)
 {
 	enum spa_audio_channel pos[8];
 	obs_channels_to_spa_audio_position(pos, audio_channels);
@@ -392,15 +283,119 @@ int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, enum spa_directio
 							   SPA_AUDIO_FORMAT_F32_LE, SPA_AUDIO_FORMAT_U8P, SPA_AUDIO_FORMAT_S16P,
 							   SPA_AUDIO_FORMAT_S32P, SPA_AUDIO_FORMAT_F32P));
 
-	return pw_stream_connect(s->stream, direction, target_id, flags, params, 1);
+	return pw_stream_connect(s->stream, PW_DIRECTION_INPUT, target_id,
+							 PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS | PW_STREAM_FLAG_DONT_RECONNECT,
+							 params, 1);
+}
+/* ------------------------------------------------- */
+
+/* Common PipeWire components */
+static void on_core_done_cb(void *data, uint32_t id, int seq)
+{
+	struct obs_pw_audio_instance *pw = data;
+
+	if (id == PW_ID_CORE && pw->seq == seq) {
+		pw_thread_loop_signal(pw->thread_loop, false);
+	}
 }
 
-struct pw_properties *obs_pw_audio_stream_properties(bool capture_sink, bool want_driver)
+static void on_core_error_cb(void *data, uint32_t id, int seq, int res, const char *message)
 {
-	return pw_properties_new(PW_KEY_NODE_NAME, "OBS", PW_KEY_NODE_DESCRIPTION, "OBS Audio Capture", PW_KEY_MEDIA_TYPE,
-							 "Audio", PW_KEY_MEDIA_CATEGORY, "Capture", PW_KEY_MEDIA_ROLE, "Production",
-							 PW_KEY_NODE_WANT_DRIVER, want_driver ? "true" : "false", PW_KEY_STREAM_CAPTURE_SINK,
-							 capture_sink ? "true" : "false", NULL);
+	struct obs_pw_audio_instance *pw = data;
+
+	blog(LOG_ERROR, "[pipewire] Error id:%u seq:%d res:%d :%s", id, seq, res, message);
+
+	pw_thread_loop_signal(pw->thread_loop, false);
+}
+
+static const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
+	.done = on_core_done_cb,
+	.error = on_core_error_cb,
+};
+
+bool obs_pw_audio_instance_init(struct obs_pw_audio_instance *pw, const struct pw_registry_events *registry_events,
+								void *registry_cb_data, bool stream_capture_sink, bool stream_want_driver,
+								obs_source_t *stream_output)
+{
+	pw->thread_loop = pw_thread_loop_new("PipeWire thread loop", NULL);
+	pw->context = pw_context_new(pw_thread_loop_get_loop(pw->thread_loop), NULL, 0);
+
+	pw_thread_loop_lock(pw->thread_loop);
+
+	if (pw_thread_loop_start(pw->thread_loop) < 0) {
+		blog(LOG_WARNING, "[pipewire] Error starting threaded mainloop");
+		return false;
+	}
+
+	pw->core = pw_context_connect(pw->context, NULL, 0);
+	if (!pw->core) {
+		blog(LOG_WARNING, "[pipewire] Error creating PipeWire core");
+		return false;
+	}
+
+	pw_core_add_listener(pw->core, &pw->core_listener, &core_events, pw);
+
+	pw->registry = pw_core_get_registry(pw->core, PW_VERSION_REGISTRY, 0);
+	if (!pw->registry) {
+		return false;
+	}
+	pw_registry_add_listener(pw->registry, &pw->registry_listener, registry_events, registry_cb_data);
+
+	pw->audio.output = stream_output;
+	pw->audio.stream =
+		pw_stream_new(pw->core, "OBS",
+					  pw_properties_new(PW_KEY_NODE_NAME, "OBS", PW_KEY_NODE_DESCRIPTION, "OBS Audio Capture",
+										PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Capture", PW_KEY_MEDIA_ROLE,
+										"Production", PW_KEY_NODE_WANT_DRIVER, stream_want_driver ? "true" : "false",
+										PW_KEY_STREAM_CAPTURE_SINK, stream_capture_sink ? "true" : "false", NULL));
+
+	if (!pw->audio.stream) {
+		blog(LOG_ERROR, "[pipewire] Failed to create stream");
+		return false;
+	}
+	blog(LOG_INFO, "[pipewire] Created stream %p", pw->audio.stream);
+
+	pw_stream_add_listener(pw->audio.stream, &pw->audio.stream_listener, &stream_events, &pw->audio);
+
+	return true;
+}
+
+void obs_pw_audio_instance_destroy(struct obs_pw_audio_instance *pw)
+{
+	if (pw->audio.stream) {
+		spa_hook_remove(&pw->audio.stream_listener);
+		if (pw_stream_get_state(pw->audio.stream, NULL) != PW_STREAM_STATE_UNCONNECTED) {
+			pw_stream_disconnect(pw->audio.stream);
+		}
+		pw_stream_destroy(pw->audio.stream);
+	}
+
+	if (pw->registry) {
+		spa_hook_remove(&pw->registry_listener);
+		spa_zero(pw->registry_listener);
+		pw_proxy_destroy((struct pw_proxy *)pw->registry);
+	}
+
+	pw_thread_loop_unlock(pw->thread_loop);
+	pw_thread_loop_stop(pw->thread_loop);
+
+	if (pw->core) {
+		spa_hook_remove(&pw->core_listener);
+		spa_zero(pw->core_listener);
+		pw_core_disconnect(pw->core);
+	}
+
+	if (pw->context) {
+		pw_context_destroy(pw->context);
+	}
+
+	pw_thread_loop_destroy(pw->thread_loop);
+}
+
+void obs_pw_audio_instance_sync(struct obs_pw_audio_instance *pw)
+{
+	pw->seq = pw_core_sync(pw->core, PW_ID_CORE, pw->seq);
 }
 /* ------------------------------------------------- */
 

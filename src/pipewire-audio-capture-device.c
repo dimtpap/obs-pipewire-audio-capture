@@ -1,4 +1,4 @@
-/* pipewire-audio-capture.c
+/* pipewire-audio-capture-device.c
  *
  * Copyright 2022 Dimitris Papaioannou <dimtpap@protonmail.com>
  *
@@ -22,7 +22,8 @@
 
 #include <util/dstr.h>
 
-/** Source for capturing device audio using PipeWire */
+/* Source for capturing device audio using PipeWire */
+
 enum obs_pw_audio_capture_device_type {
 	PIPEWIRE_AUDIO_CAPTURE_DEVICE_INPUT,
 	PIPEWIRE_AUDIO_CAPTURE_DEVICE_OUTPUT,
@@ -48,8 +49,6 @@ struct obs_pw_audio_capture_device {
 
 	struct obs_pw_audio_instance pw;
 
-	struct obs_pw_audio_stream audio;
-
 	struct {
 		struct obs_pw_audio_default_node_metadata metadata;
 		bool autoconnect;
@@ -65,32 +64,29 @@ struct obs_pw_audio_capture_device {
 
 static void start_streaming(struct obs_pw_audio_capture_device *pwac, struct target_node *node)
 {
-	if (!pwac->audio.stream || !node || !node->channels) {
+	if (!node || !node->channels) {
 		return;
 	}
 
 	dstr_copy(&pwac->target_name, node->name);
 
-	if (pw_stream_get_state(pwac->audio.stream, NULL) != PW_STREAM_STATE_UNCONNECTED) {
+	if (pw_stream_get_state(pwac->pw.audio.stream, NULL) != PW_STREAM_STATE_UNCONNECTED) {
 		if (node->id == pwac->connected_id) {
-			/** Already connected to this node */
+			/* Already connected to this node */
 			return;
 		}
-		pw_stream_disconnect(pwac->audio.stream);
+		pw_stream_disconnect(pwac->pw.audio.stream);
 	}
 
-	if (obs_pw_audio_stream_connect(&pwac->audio, PW_DIRECTION_INPUT, node->id,
-									PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS |
-										PW_STREAM_FLAG_DONT_RECONNECT,
-									node->channels) == 0) {
+	if (obs_pw_audio_stream_connect(&pwac->pw.audio, node->id, node->channels) == 0) {
 		pwac->connected_id = node->id;
-		blog(LOG_INFO, "[pipewire] %p streaming from %u", pwac->audio.stream, node->id);
+		blog(LOG_INFO, "[pipewire] %p streaming from %u", pwac->pw.audio.stream, node->id);
 	} else {
 		pwac->connected_id = SPA_ID_INVALID;
-		blog(LOG_WARNING, "[pipewire] Error connecting stream %p", pwac->audio.stream);
+		blog(LOG_WARNING, "[pipewire] Error connecting stream %p", pwac->pw.audio.stream);
 	}
 
-	pw_stream_set_active(pwac->audio.stream, obs_source_active(pwac->source));
+	pw_stream_set_active(pwac->pw.audio.stream, obs_source_active(pwac->source));
 }
 
 struct target_node *get_node_by_name(struct obs_pw_audio_capture_device *pwac, const char *name)
@@ -143,7 +139,7 @@ static void on_node_info_cb(void *data, const struct pw_node_info *info)
 	  * or the stream is unconnected and this node has the desired target name */
 	if ((pwac->default_info.autoconnect && pwac->connected_id != n->id && !dstr_is_empty(&pwac->default_info.name) &&
 		 dstr_cmp(&pwac->default_info.name, n->name) == 0) ||
-		(pwac->audio.stream && pw_stream_get_state(pwac->audio.stream, NULL) == PW_STREAM_STATE_UNCONNECTED &&
+		(pw_stream_get_state(pwac->pw.audio.stream, NULL) == PW_STREAM_STATE_UNCONNECTED &&
 		 !dstr_is_empty(&pwac->target_name) && dstr_cmp(&pwac->target_name, n->name) == 0)) {
 		start_streaming(pwac, n);
 	}
@@ -185,6 +181,7 @@ static void register_target_node(struct obs_pw_audio_capture_device *pwac, const
 	spa_zero(n->node_listener);
 	pw_proxy_add_object_listener(n->obj.proxy, &n->node_listener, &node_events, n);
 }
+/* ------------------------------------------------- */
 
 /* Default device metadata */
 static void default_node_cb(void *data, const char *name)
@@ -225,7 +222,7 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions, const ch
 			return;
 		}
 
-		/** Target device */
+		/* Target device */
 		if ((pwac->capture_type == PIPEWIRE_AUDIO_CAPTURE_DEVICE_INPUT &&
 			 (strcmp(media_class, "Audio/Source") == 0 || strcmp(media_class, "Audio/Source/Virtual") == 0)) ||
 			(pwac->capture_type == PIPEWIRE_AUDIO_CAPTURE_DEVICE_OUTPUT && strcmp(media_class, "Audio/Sink") == 0)) {
@@ -266,7 +263,7 @@ static void on_global_remove_cb(void *data, uint32_t id)
 	if (id == pwac->connected_id) {
 		pwac->connected_id = SPA_ID_INVALID;
 
-		pw_stream_disconnect(pwac->audio.stream);
+		pw_stream_disconnect(pwac->pw.audio.stream);
 
 		if (!pwac->default_info.autoconnect && !dstr_is_empty(&pwac->target_name)) {
 			start_streaming(pwac, get_node_by_name(pwac, pwac->target_name.array));
@@ -287,7 +284,8 @@ static void *pipewire_audio_capture_create(obs_data_t *settings, obs_source_t *s
 {
 	struct obs_pw_audio_capture_device *pwac = bzalloc(sizeof(struct obs_pw_audio_capture_device));
 
-	if (!obs_pw_audio_instance_init(&pwac->pw)) {
+	if (!obs_pw_audio_instance_init(&pwac->pw, &registry_events, pwac,
+									capture_type == PIPEWIRE_AUDIO_CAPTURE_DEVICE_OUTPUT, true, source)) {
 		obs_pw_audio_instance_destroy(&pwac->pw);
 
 		bfree(pwac);
@@ -311,16 +309,6 @@ static void *pipewire_audio_capture_create(obs_data_t *settings, obs_source_t *s
 	}
 
 	dstr_init_copy(&pwac->target_name, obs_data_get_string(settings, "TargetName"));
-
-	pw_registry_add_listener(pwac->pw.registry, &pwac->pw.registry_listener, &registry_events, pwac);
-
-	struct pw_properties *props =
-		obs_pw_audio_stream_properties(capture_type == PIPEWIRE_AUDIO_CAPTURE_DEVICE_OUTPUT, true);
-	if (obs_pw_audio_stream_init(&pwac->audio, &pwac->pw, props, pwac->source)) {
-		blog(LOG_INFO, "[pipewire] Created stream %p", pwac->audio.stream);
-	} else {
-		blog(LOG_WARNING, "[pipewire] Failed to create stream");
-	}
 
 	obs_pw_audio_instance_sync(&pwac->pw);
 	pw_thread_loop_wait(pwac->pw.thread_loop);
@@ -403,19 +391,13 @@ unlock:
 static void pipewire_audio_capture_show(void *data)
 {
 	struct obs_pw_audio_capture_device *pwac = data;
-
-	if (pwac->audio.stream) {
-		pw_stream_set_active(pwac->audio.stream, true);
-	}
+	pw_stream_set_active(pwac->pw.audio.stream, true);
 }
 
 static void pipewire_audio_capture_hide(void *data)
 {
 	struct obs_pw_audio_capture_device *pwac = data;
-
-	if (pwac->audio.stream) {
-		pw_stream_set_active(pwac->audio.stream, false);
-	}
+	pw_stream_set_active(pwac->pw.audio.stream, false);
 }
 
 static void pipewire_audio_capture_destroy(void *data)
@@ -429,8 +411,6 @@ static void pipewire_audio_capture_destroy(void *data)
 	{
 		pw_proxy_destroy(n->obj.proxy);
 	}
-
-	obs_pw_audio_stream_destroy(&pwac->audio);
 
 	if (pwac->default_info.metadata.proxy) {
 		pw_proxy_destroy(pwac->default_info.metadata.proxy);

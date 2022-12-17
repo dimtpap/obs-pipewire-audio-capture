@@ -1,4 +1,4 @@
-/* pipewire-audio-capture-apps.c
+/* pipewire-audio-capture-app.c
  *
  * Copyright 2022 Dimitris Papaioannou <dimtpap@protonmail.com>
  *
@@ -37,7 +37,7 @@ struct target_node {
 	const char *binary;
 	uint32_t id;
 	struct spa_list ports;
-	size_t *p_n_targets;
+	uint32_t *p_n_targets;
 
 	struct spa_hook node_listener;
 
@@ -62,10 +62,16 @@ struct capture_sink_port {
 	uint32_t id;
 };
 
+/** This source basically works like this:
+    - Keep track of output streams and their ports, system sinks and the default sink
+
+    - Keep track of the channels of the default system sink and create a new virtual sink,
+      destroying the previously made one, with the same channels, then connect the stream to it
+
+    - Connect any registered or new stream ports to the sink
+*/
 struct obs_pw_audio_capture_app {
 	struct obs_pw_audio_instance pw;
-
-	struct obs_pw_audio_stream audio;
 
 	/** The app capture sink automatically mixes
 	  * the audio of all the app streams */
@@ -93,7 +99,7 @@ struct obs_pw_audio_capture_app {
 	} default_info;
 
 	struct spa_list targets;
-	size_t n_targets;
+	uint32_t n_targets;
 
 	struct dstr target;
 	bool except_app;
@@ -271,6 +277,8 @@ static void link_port_to_sink(struct obs_pw_audio_capture_app *pwac, struct targ
 	struct pw_proxy *link_proxy = pw_core_create_object(pwac->pw.core, "link-factory", PW_TYPE_INTERFACE_Link,
 														PW_VERSION_LINK, &link_props->dict, 0);
 
+	obs_pw_audio_instance_sync(&pwac->pw);
+
 	pw_properties_free(link_props);
 
 	if (!link_proxy) {
@@ -282,8 +290,6 @@ static void link_port_to_sink(struct obs_pw_audio_capture_app *pwac, struct targ
 	link->id = SPA_ID_INVALID;
 
 	obs_pw_audio_proxied_object_init(&link->obj, link_proxy, &pwac->sink.links, link_bound_cb, link_destroy_cb, link);
-
-	obs_pw_audio_instance_sync(&pwac->pw);
 }
 
 static void link_node_to_sink(struct obs_pw_audio_capture_app *pwac, struct target_node *node)
@@ -409,6 +415,8 @@ static bool make_capture_sink(struct obs_pw_audio_capture_app *pwac, uint32_t ch
 	pwac->sink.proxy =
 		pw_core_create_object(pwac->pw.core, "adapter", PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, &sink_props->dict, 0);
 
+	obs_pw_audio_instance_sync(&pwac->pw);
+
 	pw_properties_free(sink_props);
 
 	if (!pwac->sink.proxy) {
@@ -423,8 +431,6 @@ static bool make_capture_sink(struct obs_pw_audio_capture_app *pwac, uint32_t ch
 
 	pw_proxy_add_listener(pwac->sink.proxy, &pwac->sink.proxy_listener, &sink_proxy_events, pwac);
 
-	obs_pw_audio_instance_sync(&pwac->pw);
-
 	while (pwac->sink.id == SPA_ID_INVALID || pwac->sink.ports.num != channels) {
 		/* Iterate until the sink is bound and all the ports are registered */
 		pw_loop_iterate(pw_thread_loop_get_loop(pwac->pw.thread_loop), -1);
@@ -437,14 +443,8 @@ static bool make_capture_sink(struct obs_pw_audio_capture_app *pwac, uint32_t ch
 
 	pwac->sink.autoconnect_targets = true;
 
-	if (!pwac->audio.stream) {
-		return true;
-	}
-
-	if (obs_pw_audio_stream_connect(
-			&pwac->audio, PW_DIRECTION_INPUT, pwac->sink.id,
-			PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS | PW_STREAM_FLAG_DONT_RECONNECT, channels) < 0) {
-		blog(LOG_WARNING, "[pipewire] Error connecting stream %p to app capture sink %u", pwac->audio.stream,
+	if (obs_pw_audio_stream_connect(&pwac->pw.audio, pwac->sink.id, channels) < 0) {
+		blog(LOG_WARNING, "[pipewire] Error connecting stream %p to app capture sink %u", pwac->pw.audio.stream,
 			 pwac->sink.id);
 	}
 
@@ -459,9 +459,10 @@ static void destroy_capture_sink(struct obs_pw_audio_capture_app *pwac)
 		return;
 	}
 
-	if (pwac->audio.stream) {
-		pw_stream_disconnect(pwac->audio.stream);
+	if (pw_stream_get_state(pwac->pw.audio.stream, NULL) != PW_STREAM_STATE_UNCONNECTED) {
+		pw_stream_disconnect(pwac->pw.audio.stream);
 	}
+
 	pwac->sink.autoconnect_targets = false;
 	pw_proxy_destroy(pwac->sink.proxy);
 	obs_pw_audio_instance_sync(&pwac->pw);
@@ -526,6 +527,9 @@ static void on_default_sink_proxy_removed_cb(void *data)
 static void on_default_sink_proxy_destroy_cb(void *data)
 {
 	struct obs_pw_audio_capture_app *pwac = data;
+	spa_hook_remove(&pwac->default_info.sink_listener);
+	spa_zero(pwac->default_info.sink_listener);
+
 	spa_hook_remove(&pwac->default_info.sink_proxy_listener);
 	spa_zero(pwac->default_info.sink_proxy_listener);
 
@@ -666,7 +670,7 @@ static void *pipewire_audio_capture_app_create(obs_data_t *settings, obs_source_
 {
 	struct obs_pw_audio_capture_app *pwac = bzalloc(sizeof(struct obs_pw_audio_capture_app));
 
-	if (!obs_pw_audio_instance_init(&pwac->pw)) {
+	if (!obs_pw_audio_instance_init(&pwac->pw, &registry_events, pwac, true, false, source)) {
 		obs_pw_audio_instance_destroy(&pwac->pw);
 
 		bfree(pwac);
@@ -682,15 +686,6 @@ static void *pipewire_audio_capture_app_create(obs_data_t *settings, obs_source_
 
 	dstr_init_copy(&pwac->target, obs_data_get_string(settings, "TargetName"));
 	pwac->except_app = obs_data_get_bool(settings, "ExceptApp");
-
-	pw_registry_add_listener(pwac->pw.registry, &pwac->pw.registry_listener, &registry_events, pwac);
-
-	struct pw_properties *stream_props = obs_pw_audio_stream_properties(true, false);
-	if (obs_pw_audio_stream_init(&pwac->audio, &pwac->pw, stream_props, source)) {
-		blog(LOG_INFO, "[pipewire] Created stream %p", pwac->audio.stream);
-	} else {
-		blog(LOG_WARNING, "[pipewire] Failed to create stream");
-	}
 
 	obs_pw_audio_instance_sync(&pwac->pw);
 	pw_thread_loop_wait(pwac->pw.thread_loop);
@@ -777,19 +772,13 @@ static void pipewire_audio_capture_app_update(void *data, obs_data_t *settings)
 static void pipewire_audio_capture_app_show(void *data)
 {
 	struct obs_pw_audio_capture_app *pwac = data;
-
-	if (pwac->audio.stream) {
-		pw_stream_set_active(pwac->audio.stream, true);
-	}
+	pw_stream_set_active(pwac->pw.audio.stream, true);
 }
 
 static void pipewire_audio_capture_app_hide(void *data)
 {
 	struct obs_pw_audio_capture_app *pwac = data;
-
-	if (pwac->audio.stream) {
-		pw_stream_set_active(pwac->audio.stream, false);
-	}
+	pw_stream_set_active(pwac->pw.audio.stream, false);
 }
 
 static void pipewire_audio_capture_app_destroy(void *data)
@@ -808,8 +797,6 @@ static void pipewire_audio_capture_app_destroy(void *data)
 	{
 		pw_proxy_destroy(s->obj.proxy);
 	}
-
-	obs_pw_audio_stream_destroy(&pwac->audio);
 
 	destroy_capture_sink(pwac);
 

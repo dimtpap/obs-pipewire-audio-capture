@@ -28,40 +28,6 @@
 #include <pipewire/extensions/metadata.h>
 #include <spa/param/audio/format-utils.h>
 
-/**
- * Common PipeWire components
- */
-struct obs_pw_audio_instance {
-	struct pw_thread_loop *thread_loop;
-	struct pw_context *context;
-
-	struct pw_core *core;
-	struct spa_hook core_listener;
-	int seq;
-
-	struct pw_registry *registry;
-	struct spa_hook registry_listener;
-};
-
-/**
- * Initialize a PipeWire instance
- * @warning The thread loop is left locked
- * @return true on success, false on error
- */
-bool obs_pw_audio_instance_init(struct obs_pw_audio_instance *pw);
-
-/**
- * Destroy a PipeWire instance
- * @warning Call with the thread loop locked
- */
-void obs_pw_audio_instance_destroy(struct obs_pw_audio_instance *pw);
-
-/**
- * Trigger a PipeWire core sync
- */
-void obs_pw_audio_instance_sync(struct obs_pw_audio_instance *pw);
-/* ------------------------------------------------- */
-
 /* PipeWire Stream wrapper */
 
 /**
@@ -86,28 +52,48 @@ struct obs_pw_audio_stream {
 };
 
 /**
- * Initialize a stream
- * @return true on success, false on error
- */
-bool obs_pw_audio_stream_init(struct obs_pw_audio_stream *s, struct obs_pw_audio_instance *pw,
-							  struct pw_properties *props, obs_source_t *output);
-
-/**
- * Destroy a stream
- */
-void obs_pw_audio_stream_destroy(struct obs_pw_audio_stream *s);
-
-/**
  * Connect a stream with the default params
  * @return 0 on success, < 0 on error
  */
-int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, enum spa_direction direction, uint32_t target_id,
-								enum pw_stream_flags flags, uint32_t channels);
+int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, uint32_t target_id, uint32_t channels);
+/* ------------------------------------------------- */
 
 /**
- * Default PipeWire stream properties
+ * Common PipeWire components
  */
-struct pw_properties *obs_pw_audio_stream_properties(bool capture_sink, bool want_driver);
+struct obs_pw_audio_instance {
+	struct pw_thread_loop *thread_loop;
+	struct pw_context *context;
+
+	struct pw_core *core;
+	struct spa_hook core_listener;
+	int seq;
+
+	struct pw_registry *registry;
+	struct spa_hook registry_listener;
+
+	struct obs_pw_audio_stream audio;
+};
+
+/**
+ * Initialize a PipeWire instance
+ * @warning The thread loop is left locked
+ * @return true on success, false on error
+ */
+bool obs_pw_audio_instance_init(struct obs_pw_audio_instance *pw, const struct pw_registry_events *registry_events,
+								void *registry_cb_data, bool stream_capture_sink, bool stream_want_driver,
+								obs_source_t *stream_output);
+
+/**
+ * Destroy a PipeWire instance
+ * @warning Call with the thread loop locked
+ */
+void obs_pw_audio_instance_destroy(struct obs_pw_audio_instance *pw);
+
+/**
+ * Trigger a PipeWire core sync
+ */
+void obs_pw_audio_instance_sync(struct obs_pw_audio_instance *pw);
 /* ------------------------------------------------- */
 
 /**
