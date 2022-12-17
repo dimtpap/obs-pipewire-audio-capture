@@ -5,6 +5,8 @@ This plugin adds 3 sources for capturing audio outputs, inputs and applications 
 ### Requirements
 - OBS Studio 28.0 or later
 - [WirePlumber](https://pipewire.pages.freedesktop.org/wireplumber/)
+
+PipeWire 0.3.62 or later is highly recommended ([#17](https://github.com/dimtpap/obs-pipewire-audio-capture/issues/17), [PipeWire#2874](https://gitlab.freedesktop.org/pipewire/pipewire/-/issues/2874))
 ### Binary installation
 Get the `linux-pipewire-audio-(version).tar.gz` archive from the [latest release](https://github.com/dimtpap/obs-pipewire-audio-capture/releases/latest)  
 If OBS Studio is installed as a
@@ -21,6 +23,6 @@ cd build
 make
 make install #May need root
 ```
-## Extra
+## Inclusion in upstream OBS Studio
 
-*This plugin is currently in the process of being worked on to merge into upstream OBS Studio. See at https://github.com/obsproject/obs-studio/pull/6207*
+This plugin is currently in the process of being worked on to merge into upstream OBS Studio. See https://github.com/obsproject/obs-studio/pull/6207
