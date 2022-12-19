@@ -351,7 +351,7 @@ bool obs_pw_audio_instance_init(struct obs_pw_audio_instance *pw, const struct p
 										PW_KEY_STREAM_CAPTURE_SINK, stream_capture_sink ? "true" : "false", NULL));
 
 	if (!pw->audio.stream) {
-		blog(LOG_ERROR, "[pipewire] Failed to create stream");
+		blog(LOG_WARNING, "[pipewire] Failed to create stream");
 		return false;
 	}
 	blog(LOG_INFO, "[pipewire] Created stream %p", pw->audio.stream);
