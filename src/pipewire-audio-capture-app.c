@@ -74,6 +74,8 @@ enum match_priority { BINARY_NAME, APP_NAME };
     - Connect any registered or new stream ports to the sink
 */
 struct obs_pw_audio_capture_app {
+	obs_source_t *source;
+
 	struct obs_pw_audio_instance pw;
 
 	/** The app capture sink automatically mixes
@@ -108,7 +110,7 @@ struct obs_pw_audio_capture_app {
 	uint32_t n_targets;
 
 	enum match_priority match_priority;
-	struct dstr target;
+	DARRAY(char *) selections;
 	bool except_app;
 };
 
@@ -270,29 +272,27 @@ static void register_target_node(struct obs_pw_audio_capture_app *pwac, uint32_t
 
 static bool node_is_targeted(struct obs_pw_audio_capture_app *pwac, struct target_node *node)
 {
-	if (dstr_is_empty(&pwac->target)) {
-		return false;
-	}
+	for (size_t i = 0; i < pwac->selections.num; i++) {
+		const char *selection = pwac->selections.array[i];
 
-	bool targeted = (dstr_cmpi(&pwac->target, node->binary) == 0 || dstr_cmpi(&pwac->target, node->app_name) == 0 ||
-					 dstr_cmpi(&pwac->target, node->name) == 0);
+		if (astrcmpi(selection, node->binary) == 0 || astrcmpi(selection, node->app_name) == 0 ||
+			astrcmpi(selection, node->name) == 0) {
+			return !pwac->except_app;
+		} else if (node->client_id) {
+			struct obs_pw_audio_proxy_list_iter iter;
+			obs_pw_audio_proxy_list_iter_init(&iter, &pwac->clients);
 
-	if (!targeted && node->client_id) {
-		struct obs_pw_audio_proxy_list_iter iter;
-		obs_pw_audio_proxy_list_iter_init(&iter, &pwac->clients);
-
-		struct target_client *client;
-		while (obs_pw_audio_proxy_list_iter_next(&iter, (void **)&client)) {
-			if (client->id == node->client_id) {
-				targeted =
-					(dstr_cmpi(&pwac->target, client->binary) == 0 || dstr_cmpi(&pwac->target, client->app_name) == 0);
-
-				break;
+			struct target_client *client;
+			while (obs_pw_audio_proxy_list_iter_next(&iter, (void **)&client)) {
+				if (client->id == node->client_id &&
+					(astrcmpi(selection, client->binary) == 0 || astrcmpi(selection, client->app_name) == 0)) {
+					return !pwac->except_app;
+				}
 			}
 		}
 	}
 
-	return targeted ^ pwac->except_app;
+	return pwac->except_app;
 }
 /* ------------------------------------------------- */
 
@@ -443,23 +443,15 @@ static void destroy_sink_links(struct obs_pw_audio_capture_app *pwac)
 	obs_pw_audio_proxy_list_clear(&pwac->sink.links);
 }
 
-static void connect_targets(struct obs_pw_audio_capture_app *pwac, const char *target, bool except)
+static void connect_targets(struct obs_pw_audio_capture_app *pwac, bool except)
 {
 	pwac->except_app = except;
-
-	if (target) {
-		dstr_copy(&pwac->target, target);
-	}
 
 	if (!pwac->sink.proxy) {
 		return;
 	}
 
 	destroy_sink_links(pwac);
-
-	if (dstr_is_empty(&pwac->target)) {
-		return;
-	}
 
 	struct obs_pw_audio_proxy_list_iter iter;
 	obs_pw_audio_proxy_list_iter_init(&iter, &pwac->targets);
@@ -521,7 +513,7 @@ static bool make_capture_sink(struct obs_pw_audio_capture_app *pwac, uint32_t ch
 	blog(LOG_INFO, "[pipewire] Created app capture sink %u with %u channels and position %s", pwac->sink.id, channels,
 		 position);
 
-	connect_targets(pwac, NULL, pwac->except_app);
+	connect_targets(pwac, pwac->except_app);
 
 	pwac->sink.autoconnect_targets = true;
 
@@ -772,6 +764,25 @@ static const struct pw_registry_events registry_events = {
 /* ------------------------------------------------- */
 
 /* Source */
+static void build_selections(struct obs_pw_audio_capture_app *pwac, obs_data_array_t *data_array)
+{
+	for (size_t i = 0; i < pwac->selections.num; i++) {
+		bfree((void *)pwac->selections.array[i]);
+	}
+	da_free(pwac->selections);
+
+	if (!data_array) {
+		return;
+	}
+
+	for (size_t i = 0; i < obs_data_array_count(data_array); i++) {
+		obs_data_t *item = obs_data_array_item(data_array, i);
+		const char *val = bstrdup(obs_data_get_string(item, "value"));
+		da_push_back(pwac->selections, &val);
+		obs_data_release(item);
+	}
+}
+
 static void *pipewire_audio_capture_app_create(obs_data_t *settings, obs_source_t *source)
 {
 	struct obs_pw_audio_capture_app *pwac = bzalloc(sizeof(struct obs_pw_audio_capture_app));
@@ -783,6 +794,8 @@ static void *pipewire_audio_capture_app_create(obs_data_t *settings, obs_source_
 		return NULL;
 	}
 
+	pwac->source = source;
+
 	obs_pw_audio_proxy_list_init(&pwac->targets, NULL, node_destroy_cb);
 	obs_pw_audio_proxy_list_init(&pwac->clients, NULL, client_destroy_cb);
 	obs_pw_audio_proxy_list_init(&pwac->sink.links, link_bound_cb, link_destroy_cb);
@@ -792,7 +805,16 @@ static void *pipewire_audio_capture_app_create(obs_data_t *settings, obs_source_
 	dstr_init(&pwac->sink.position);
 
 	pwac->match_priority = obs_data_get_int(settings, "MatchPriority");
-	dstr_init_copy(&pwac->target, obs_data_get_string(settings, "TargetName"));
+	da_init(pwac->selections);
+
+	obs_data_array_t *selections_darr = obs_data_get_array(settings, "apps");
+	if (!selections_darr) {
+		selections_darr = obs_data_array_create();
+		obs_data_set_array(settings, "apps", selections_darr);
+	}
+	build_selections(pwac, selections_darr);
+	obs_data_array_release(selections_darr);
+
 	pwac->except_app = obs_data_get_bool(settings, "ExceptApp");
 
 	obs_pw_audio_instance_sync(&pwac->pw);
@@ -815,6 +837,45 @@ static int cmp_targets(const void *a, const void *b)
 	return strcmp(a_str, b_str);
 }
 
+static bool add_target(obs_properties_t *props, obs_property_t *property, void *data)
+{
+	struct obs_pw_audio_capture_app *pwac = data;
+
+	obs_data_t *source_settings = obs_source_get_settings(pwac->source);
+	const char *target_to_add = obs_data_get_string(source_settings, "app_to_add");
+
+	obs_data_array_t *apps = obs_data_get_array(source_settings, "apps");
+
+	bool should_add = true;
+	for (size_t i = 0; i < obs_data_array_count(apps); i++) {
+		obs_data_t *item = obs_data_array_item(apps, i);
+		if (astrcmpi(obs_data_get_string(item, "value"), target_to_add) == 0) {
+			should_add = false;
+			obs_data_release(item);
+			break;
+		}
+		obs_data_release(item);
+	}
+
+	if (should_add) {
+		obs_data_t *new_entry = obs_data_create();
+		obs_data_set_bool(new_entry, "hidden", false);
+		obs_data_set_bool(new_entry, "selected", false);
+		obs_data_set_string(new_entry, "value", target_to_add);
+
+		obs_data_array_push_back(apps, new_entry);
+
+		obs_data_release(new_entry);
+
+		obs_source_update(pwac->source, source_settings);
+	}
+
+	obs_data_array_release(apps);
+	obs_data_release(source_settings);
+
+	return should_add;
+}
+
 static const char *choose_display_string(struct obs_pw_audio_capture_app *pwac, const char *binary,
 										 const char *app_name)
 {
@@ -833,8 +894,7 @@ static bool match_priority_modified(void *data, obs_properties_t *properties, ob
 	UNUSED_PARAMETER(settings);
 
 	struct obs_pw_audio_capture_app *pwac = data;
-
-	obs_property_t *targets = obs_properties_get(properties, "TargetName");
+	obs_property_t *targets = obs_properties_get(properties, "app_to_add");
 	obs_property_list_clear(targets);
 
 	DARRAY(char *) targets_arr;
@@ -875,7 +935,7 @@ static bool match_priority_modified(void *data, obs_properties_t *properties, ob
 
 	for (size_t i = 0; i < targets_arr.num; i++) {
 		if (i == 0 || strcmp(targets_arr.array[i - 1], targets_arr.array[i]) != 0) {
-			obs_property_list_add_string(targets, targets_arr.array[i], NULL);
+			obs_property_list_add_string(targets, targets_arr.array[i], targets_arr.array[i]);
 		}
 	}
 
@@ -896,13 +956,17 @@ static obs_properties_t *pipewire_audio_capture_app_properties(void *data)
 															 OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
 	obs_property_list_add_int(match_priority, obs_module_text("MatchBinaryFirst"), BINARY_NAME);
 	obs_property_list_add_int(match_priority, obs_module_text("MatchAppNameFirst"), APP_NAME);
+	obs_property_set_modified_callback2(match_priority, match_priority_modified, pwac);
 
-	obs_properties_add_list(p, "TargetName", obs_module_text("Application"), OBS_COMBO_TYPE_EDITABLE,
-							OBS_COMBO_FORMAT_STRING);
+	obs_properties_add_editable_list(p, "apps", obs_module_text("Applications"), OBS_EDITABLE_LIST_TYPE_STRINGS, NULL,
+									 NULL);
 
 	obs_properties_add_bool(p, "ExceptApp", obs_module_text("ExceptApp"));
 
-	obs_property_set_modified_callback2(match_priority, match_priority_modified, pwac);
+	obs_properties_add_list(p, "app_to_add", obs_module_text("AvailableApps"), OBS_COMBO_TYPE_LIST,
+							OBS_COMBO_FORMAT_STRING);
+
+	obs_properties_add_button2(p, "addtarget", obs_module_text("AddAppToList"), add_target, pwac);
 
 	return p;
 }
@@ -915,14 +979,13 @@ static void pipewire_audio_capture_app_update(void *data, obs_data_t *settings)
 	const char *new_target = obs_data_get_string(settings, "TargetName");
 	bool except = obs_data_get_bool(settings, "ExceptApp");
 
+	obs_data_array_t *selections = obs_data_get_array(settings, "apps");
+	build_selections(pwac, selections);
+	obs_data_array_release(selections);
+
 	pw_thread_loop_lock(pwac->pw.thread_loop);
 
-	if (except == pwac->except_app && dstr_cmpi(&pwac->target, new_target) == 0) {
-		pw_thread_loop_unlock(pwac->pw.thread_loop);
-		return;
-	}
-
-	connect_targets(pwac, new_target, except);
+	connect_targets(pwac, except);
 
 	obs_pw_audio_instance_sync(&pwac->pw);
 	pw_thread_loop_wait(pwac->pw.thread_loop);
@@ -970,7 +1033,11 @@ static void pipewire_audio_capture_app_destroy(void *data)
 	obs_pw_audio_instance_destroy(&pwac->pw);
 
 	dstr_free(&pwac->sink.position);
-	dstr_free(&pwac->target);
+
+	for (size_t i = 0; i < pwac->selections.num; i++) {
+		bfree((void *)pwac->selections.array[i]);
+	}
+	da_free(pwac->selections);
 
 	bfree(pwac);
 }
