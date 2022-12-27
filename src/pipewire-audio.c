@@ -406,14 +406,12 @@ static int on_metadata_property_cb(void *data, uint32_t id, const char *key, con
 
 	struct obs_pw_audio_default_node_metadata *metadata = data;
 
-	if (metadata->default_node_callback && id == PW_ID_CORE && key && value &&
+	if (id == PW_ID_CORE && key && value &&
 		strcmp(key, metadata->wants_sink ? "default.audio.sink" : "default.audio.source") == 0) {
 		char val[128];
-		if (!json_object_find(value, "name", val, sizeof(val)) || !*val) {
-			return 0;
+		if (json_object_find(value, "name", val, sizeof(val)) && *val) {
+			metadata->default_node_callback(metadata->data, val);
 		}
-
-		metadata->default_node_callback(metadata->data, val);
 	}
 
 	return 0;
