@@ -196,7 +196,7 @@ static void on_process_cb(void *data)
 		.samples_per_sec = s->info.sample_rate,
 	};
 
-	for (size_t i = 0; i < buf->n_datas && i < 8; i++) {
+	for (size_t i = 0; i < buf->n_datas && i < MAX_AV_PLANES; i++) {
 		out.data[i] = buf->datas[i].data;
 	}
 
