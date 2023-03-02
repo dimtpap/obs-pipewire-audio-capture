@@ -200,16 +200,15 @@ static void on_process_cb(void *data)
 		out.data[i] = buf->datas[i].data;
 	}
 
-	if (s->pos && (s->info.sample_rate * s->pos->clock.rate_diff)) {
+	if (s->info.sample_rate * s->pos->clock.rate_diff) {
 		/** Taken from PipeWire's implementation of JACK's jack_get_cycle_times
 		  * (https://gitlab.freedesktop.org/pipewire/pipewire/-/blob/0.3.52/pipewire-jack/src/pipewire-jack.c#L5639)
 		  * which is used in the linux-jack plugin to correctly set the timestamp
 		  * (https://github.com/obsproject/obs-studio/blob/27.2.4/plugins/linux-jack/jack-wrapper.c#L87) */
+		double period_nsecs =
+			s->pos->clock.duration * (double)SPA_NSEC_PER_SEC / (s->info.sample_rate * s->pos->clock.rate_diff);
 
-		float period_usecs =
-			s->pos->clock.duration * (float)SPA_USEC_PER_SEC / (s->info.sample_rate * s->pos->clock.rate_diff);
-
-		out.timestamp = now - (uint64_t)(period_usecs * 1000);
+		out.timestamp = now - (uint64_t)period_nsecs;
 	} else {
 		out.timestamp = now - audio_frames_to_ns(s->info.sample_rate, out.frames);
 	}
