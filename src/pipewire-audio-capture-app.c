@@ -62,6 +62,8 @@ struct capture_sink_port {
 	uint32_t id;
 };
 
+enum match_priority { BINARY_NAME, APP_NAME };
+
 /** This source basically works like this:
     - Keep track of output streams and their ports, system sinks and the default sink
 
@@ -101,6 +103,7 @@ struct obs_pw_audio_capture_app {
 	struct spa_list targets;
 	uint32_t n_targets;
 
+	enum match_priority match_priority;
 	struct dstr target;
 	bool except_app;
 };
@@ -684,6 +687,7 @@ static void *pipewire_audio_capture_app_create(obs_data_t *settings, obs_source_
 	pwac->sink.id = SPA_ID_INVALID;
 	dstr_init(&pwac->sink.position);
 
+	pwac->match_priority = obs_data_get_int(settings, "MatchPriority");
 	dstr_init_copy(&pwac->target, obs_data_get_string(settings, "TargetName"));
 	pwac->except_app = obs_data_get_bool(settings, "ExceptApp");
 
@@ -696,6 +700,7 @@ static void *pipewire_audio_capture_app_create(obs_data_t *settings, obs_source_
 
 static void pipewire_audio_capture_app_defaults(obs_data_t *settings)
 {
+	obs_data_set_default_int(settings, "MatchPriority", BINARY_NAME);
 	obs_data_set_default_bool(settings, "ExceptApp", false);
 }
 
@@ -706,16 +711,16 @@ static int cmp_targets(const void *a, const void *b)
 	return strcmp(a_str, b_str);
 }
 
-static obs_properties_t *pipewire_audio_capture_app_properties(void *data)
+static bool match_priority_modified(void *data, obs_properties_t *properties, obs_property_t *property,
+									obs_data_t *settings)
 {
+	UNUSED_PARAMETER(property);
+	UNUSED_PARAMETER(settings);
+
 	struct obs_pw_audio_capture_app *pwac = data;
 
-	obs_properties_t *p = obs_properties_create();
-
-	obs_property_t *targets_prop_list = obs_properties_add_list(p, "TargetName", obs_module_text("Application"),
-																OBS_COMBO_TYPE_EDITABLE, OBS_COMBO_FORMAT_STRING);
-
-	obs_properties_add_bool(p, "ExceptApp", obs_module_text("ExceptApp"));
+	obs_property_t *targets = obs_properties_get(properties, "TargetName");
+	obs_property_list_clear(targets);
 
 	DARRAY(char *) targets_arr;
 	da_init(targets_arr);
@@ -727,22 +732,50 @@ static obs_properties_t *pipewire_audio_capture_app_properties(void *data)
 	struct target_node *node;
 	spa_list_for_each(node, &pwac->targets, obj.link)
 	{
-		da_push_back(targets_arr, node->binary ? &node->binary : node->app_name ? &node->app_name : &node->name);
+		switch (pwac->match_priority) {
+		case BINARY_NAME:
+			da_push_back(targets_arr, node->binary ? &node->binary : node->app_name ? &node->app_name : &node->name);
+			break;
+		case APP_NAME:
+			da_push_back(targets_arr, node->app_name ? &node->app_name : node->binary ? &node->binary : &node->name);
+			break;
+		}
 	}
 
-	/* Show just one entry per app */
+	/* Show just one entry per target */
 
 	qsort(targets_arr.array, targets_arr.num, sizeof(char *), cmp_targets);
 
 	for (size_t i = 0; i < targets_arr.num; i++) {
 		if (i == 0 || strcmp(targets_arr.array[i - 1], targets_arr.array[i]) != 0) {
-			obs_property_list_add_string(targets_prop_list, targets_arr.array[i], NULL);
+			obs_property_list_add_string(targets, targets_arr.array[i], NULL);
 		}
 	}
 
 	pw_thread_loop_unlock(pwac->pw.thread_loop);
 
 	da_free(targets_arr);
+
+	return true;
+}
+
+static obs_properties_t *pipewire_audio_capture_app_properties(void *data)
+{
+	struct obs_pw_audio_capture_app *pwac = data;
+
+	obs_properties_t *p = obs_properties_create();
+
+	obs_property_t *match_priority = obs_properties_add_list(p, "MatchPriority", obs_module_text("MatchPriority"),
+															 OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
+	obs_property_list_add_int(match_priority, obs_module_text("MatchBinaryFirst"), BINARY_NAME);
+	obs_property_list_add_int(match_priority, obs_module_text("MatchAppNameFirst"), APP_NAME);
+
+	obs_properties_add_list(p, "TargetName", obs_module_text("Application"), OBS_COMBO_TYPE_EDITABLE,
+							OBS_COMBO_FORMAT_STRING);
+
+	obs_properties_add_bool(p, "ExceptApp", obs_module_text("ExceptApp"));
+
+	obs_property_set_modified_callback2(match_priority, match_priority_modified, pwac);
 
 	return p;
 }
@@ -751,9 +784,9 @@ static void pipewire_audio_capture_app_update(void *data, obs_data_t *settings)
 {
 	struct obs_pw_audio_capture_app *pwac = data;
 
-	bool except = obs_data_get_bool(settings, "ExceptApp");
-
+	pwac->match_priority = obs_data_get_int(settings, "MatchPriority");
 	const char *new_target = obs_data_get_string(settings, "TargetName");
+	bool except = obs_data_get_bool(settings, "ExceptApp");
 
 	pw_thread_loop_lock(pwac->pw.thread_loop);
 
