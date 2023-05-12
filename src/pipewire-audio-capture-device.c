@@ -361,27 +361,19 @@ static void pipewire_audio_capture_update(void *data, obs_data_t *settings)
 
 	pw_thread_loop_lock(pwac->pw.thread_loop);
 
-	if (new_node_id == PW_ID_ANY) {
-		pwac->default_info.autoconnect = true;
-
+	if ((pwac->default_info.autoconnect = new_node_id == PW_ID_ANY)) {
 		if (pwac->default_info.node_id != SPA_ID_INVALID) {
 			start_streaming(pwac, get_node_by_id(pwac, pwac->default_info.node_id));
 		}
-		goto unlock;
+	} else {
+		struct target_node *new_node = get_node_by_id(pwac, new_node_id);
+		if (new_node) {
+			start_streaming(pwac, new_node);
+
+			obs_data_set_string(settings, "TargetName", pwac->target_name.array);
+		}
 	}
 
-	pwac->default_info.autoconnect = false;
-
-	struct target_node *new_node = get_node_by_id(pwac, new_node_id);
-	if (!new_node) {
-		goto unlock;
-	}
-
-	start_streaming(pwac, new_node);
-
-	obs_data_set_string(settings, "TargetName", pwac->target_name.array);
-
-unlock:
 	pw_thread_loop_unlock(pwac->pw.thread_loop);
 }
 
