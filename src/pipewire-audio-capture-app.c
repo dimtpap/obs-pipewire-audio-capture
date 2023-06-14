@@ -732,14 +732,22 @@ static bool match_priority_modified(void *data, obs_properties_t *properties, ob
 	struct target_node *node;
 	spa_list_for_each(node, &pwac->targets, obj.link)
 	{
+		const char *display;
+
 		switch (pwac->match_priority) {
 		case BINARY_NAME:
-			da_push_back(targets_arr, node->binary ? &node->binary : node->app_name ? &node->app_name : &node->name);
+			display = node->binary ? node->binary : node->app_name;
 			break;
 		case APP_NAME:
-			da_push_back(targets_arr, node->app_name ? &node->app_name : node->binary ? &node->binary : &node->name);
+			display = node->app_name ? node->app_name : node->binary;
 			break;
 		}
+
+		if (!display) {
+			display = node->name;
+		}
+
+		da_push_back(targets_arr, &display);
 	}
 
 	/* Show just one entry per target */
