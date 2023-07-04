@@ -268,8 +268,7 @@ static void link_port_to_sink(struct obs_pw_audio_capture_app *pwac, struct targ
 		return;
 	}
 
-	struct pw_properties *link_props =
-		pw_properties_new(PW_KEY_OBJECT_LINGER, "false", PW_KEY_FACTORY_NAME, "link-factory", NULL);
+	struct pw_properties *link_props = pw_properties_new(PW_KEY_OBJECT_LINGER, "false", NULL);
 
 	pw_properties_setf(link_props, PW_KEY_LINK_OUTPUT_NODE, "%u", node_id);
 	pw_properties_setf(link_props, PW_KEY_LINK_OUTPUT_PORT, "%u", port->id);
