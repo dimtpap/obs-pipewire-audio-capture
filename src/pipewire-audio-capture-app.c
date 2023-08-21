@@ -819,13 +819,19 @@ static void pipewire_audio_capture_app_update(void *data, obs_data_t *settings)
 static void pipewire_audio_capture_app_show(void *data)
 {
 	struct obs_pw_audio_capture_app *pwac = data;
+
+	pw_thread_loop_lock(pwac->pw.thread_loop);
 	pw_stream_set_active(pwac->pw.audio.stream, true);
+	pw_thread_loop_unlock(pwac->pw.thread_loop);
 }
 
 static void pipewire_audio_capture_app_hide(void *data)
 {
 	struct obs_pw_audio_capture_app *pwac = data;
+
+	pw_thread_loop_lock(pwac->pw.thread_loop);
 	pw_stream_set_active(pwac->pw.audio.stream, false);
+	pw_thread_loop_unlock(pwac->pw.thread_loop);
 }
 
 static void pipewire_audio_capture_app_destroy(void *data)
