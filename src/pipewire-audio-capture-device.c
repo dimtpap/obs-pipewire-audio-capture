@@ -154,6 +154,14 @@ static void node_destroy_cb(void *data)
 {
 	struct target_node *n = data;
 
+	struct obs_pw_audio_capture_device *pwac = n->pwac;
+	if (n->serial == pwac->connected_serial) {
+		if (pw_stream_get_state(pwac->pw.audio.stream, NULL) != PW_STREAM_STATE_UNCONNECTED) {
+			pw_stream_disconnect(pwac->pw.audio.stream);
+		}
+		pwac->connected_serial = SPA_ID_INVALID;
+	}
+
 	spa_hook_remove(&n->node_listener);
 
 	bfree((void *)n->friendly_name);
