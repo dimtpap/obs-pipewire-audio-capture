@@ -859,8 +859,6 @@ static bool add_target(obs_properties_t *props, obs_property_t *property, void *
 
 	if (should_add) {
 		obs_data_t *new_entry = obs_data_create();
-		obs_data_set_bool(new_entry, "hidden", false);
-		obs_data_set_bool(new_entry, "selected", false);
 		obs_data_set_string(new_entry, "value", target_to_add);
 
 		obs_data_array_push_back(apps, new_entry);
