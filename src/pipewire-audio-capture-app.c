@@ -110,7 +110,6 @@ struct obs_pw_audio_capture_app {
 	uint32_t n_targets;
 
 	enum match_priority match_priority;
-	DARRAY(char *) selections;
 	bool except_app;
 };
 
@@ -272,13 +271,18 @@ static void register_target_node(struct obs_pw_audio_capture_app *pwac, uint32_t
 
 static bool node_is_targeted(struct obs_pw_audio_capture_app *pwac, struct target_node *node)
 {
-	for (size_t i = 0; i < pwac->selections.num; i++) {
-		const char *selection = pwac->selections.array[i];
+	obs_data_t *settings = obs_source_get_settings(pwac->source);
+	obs_data_array_t *selections = obs_data_get_array(settings, "apps");
 
-		if (astrcmpi(selection, node->binary) == 0 || astrcmpi(selection, node->app_name) == 0 ||
-			astrcmpi(selection, node->name) == 0) {
-			return !pwac->except_app;
-		} else if (node->client_id) {
+	bool targeted = false;
+	for (size_t i = 0; i < obs_data_array_count(selections); i++) {
+		obs_data_t *item = obs_data_array_item(selections, i);
+		const char *selection = obs_data_get_string(item, "value");
+
+		targeted = astrcmpi(selection, node->binary) == 0 || astrcmpi(selection, node->app_name) == 0 ||
+				   astrcmpi(selection, node->name) == 0;
+
+		if (!targeted && node->client_id) {
 			struct obs_pw_audio_proxy_list_iter iter;
 			obs_pw_audio_proxy_list_iter_init(&iter, &pwac->clients);
 
@@ -286,13 +290,23 @@ static bool node_is_targeted(struct obs_pw_audio_capture_app *pwac, struct targe
 			while (obs_pw_audio_proxy_list_iter_next(&iter, (void **)&client)) {
 				if (client->id == node->client_id &&
 					(astrcmpi(selection, client->binary) == 0 || astrcmpi(selection, client->app_name) == 0)) {
-					return !pwac->except_app;
+					targeted = true;
+					break;
 				}
 			}
 		}
+
+		obs_data_release(item);
+
+		if (targeted) {
+			break;
+		}
 	}
 
-	return pwac->except_app;
+	obs_data_array_release(selections);
+	obs_data_release(settings);
+
+	return targeted ^ pwac->except_app;
 }
 /* ------------------------------------------------- */
 
@@ -764,25 +778,6 @@ static const struct pw_registry_events registry_events = {
 /* ------------------------------------------------- */
 
 /* Source */
-static void build_selections(struct obs_pw_audio_capture_app *pwac, obs_data_array_t *data_array)
-{
-	for (size_t i = 0; i < pwac->selections.num; i++) {
-		bfree((void *)pwac->selections.array[i]);
-	}
-	da_free(pwac->selections);
-
-	if (!data_array) {
-		return;
-	}
-
-	for (size_t i = 0; i < obs_data_array_count(data_array); i++) {
-		obs_data_t *item = obs_data_array_item(data_array, i);
-		const char *val = bstrdup(obs_data_get_string(item, "value"));
-		da_push_back(pwac->selections, &val);
-		obs_data_release(item);
-	}
-}
-
 static void *pipewire_audio_capture_app_create(obs_data_t *settings, obs_source_t *source)
 {
 	struct obs_pw_audio_capture_app *pwac = bzalloc(sizeof(struct obs_pw_audio_capture_app));
@@ -805,15 +800,6 @@ static void *pipewire_audio_capture_app_create(obs_data_t *settings, obs_source_
 	dstr_init(&pwac->sink.position);
 
 	pwac->match_priority = obs_data_get_int(settings, "MatchPriority");
-	da_init(pwac->selections);
-
-	obs_data_array_t *selections_darr = obs_data_get_array(settings, "apps");
-	if (!selections_darr) {
-		selections_darr = obs_data_array_create();
-		obs_data_set_array(settings, "apps", selections_darr);
-	}
-	build_selections(pwac, selections_darr);
-	obs_data_array_release(selections_darr);
 
 	pwac->except_app = obs_data_get_bool(settings, "ExceptApp");
 
@@ -977,10 +963,6 @@ static void pipewire_audio_capture_app_update(void *data, obs_data_t *settings)
 	const char *new_target = obs_data_get_string(settings, "TargetName");
 	bool except = obs_data_get_bool(settings, "ExceptApp");
 
-	obs_data_array_t *selections = obs_data_get_array(settings, "apps");
-	build_selections(pwac, selections);
-	obs_data_array_release(selections);
-
 	pw_thread_loop_lock(pwac->pw.thread_loop);
 
 	connect_targets(pwac, except);
@@ -1031,11 +1013,6 @@ static void pipewire_audio_capture_app_destroy(void *data)
 	obs_pw_audio_instance_destroy(&pwac->pw);
 
 	dstr_free(&pwac->sink.position);
-
-	for (size_t i = 0; i < pwac->selections.num; i++) {
-		bfree((void *)pwac->selections.array[i]);
-	}
-	da_free(pwac->selections);
 
 	bfree(pwac);
 }
