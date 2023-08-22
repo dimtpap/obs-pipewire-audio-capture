@@ -82,6 +82,7 @@ struct obs_pw_audio_capture_app {
 		struct spa_hook proxy_listener;
 		bool autoconnect_targets;
 		uint32_t id;
+		uint32_t serial;
 		uint32_t channels;
 		struct dstr position;
 		DARRAY(struct capture_sink_port) ports;
@@ -437,12 +438,18 @@ static bool make_capture_sink(struct obs_pw_audio_capture_app *pwac, uint32_t ch
 	dstr_copy(&pwac->sink.position, position);
 
 	pwac->sink.id = SPA_ID_INVALID;
+	pwac->sink.serial = SPA_ID_INVALID;
 
 	pw_proxy_add_listener(pwac->sink.proxy, &pwac->sink.proxy_listener, &sink_proxy_events, pwac);
 
-	while (pwac->sink.id == SPA_ID_INVALID || pwac->sink.ports.num != channels) {
+	while (pwac->sink.id == SPA_ID_INVALID || pwac->sink.serial == SPA_ID_INVALID || pwac->sink.ports.num != channels) {
 		/* Iterate until the sink is bound and all the ports are registered */
 		pw_loop_iterate(pw_thread_loop_get_loop(pwac->pw.thread_loop), -1);
+	}
+
+	if (pwac->sink.serial == 0) {
+		pw_proxy_destroy(pwac->sink.proxy);
+		return false;
 	}
 
 	blog(LOG_INFO, "[pipewire] Created app capture sink %u with %u channels and position %s", pwac->sink.id, channels,
@@ -452,7 +459,7 @@ static bool make_capture_sink(struct obs_pw_audio_capture_app *pwac, uint32_t ch
 
 	pwac->sink.autoconnect_targets = true;
 
-	if (obs_pw_audio_stream_connect(&pwac->pw.audio, pwac->sink.id, channels) < 0) {
+	if (obs_pw_audio_stream_connect(&pwac->pw.audio, pwac->sink.serial, channels) < 0) {
 		blog(LOG_WARNING, "[pipewire] Error connecting stream %p to app capture sink %u", pwac->pw.audio.stream,
 			 pwac->sink.id);
 	}
@@ -602,6 +609,16 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions, const ch
 	}
 
 	struct obs_pw_audio_capture_app *pwac = data;
+
+	if (id == pwac->sink.id) {
+		const char *ser = spa_dict_lookup(props, PW_KEY_OBJECT_SERIAL);
+		if (!ser) {
+			blog(LOG_ERROR, "[pipewire] No object serial found on app capture sink %u", id);
+			pwac->sink.serial = 0;
+		} else {
+			pwac->sink.serial = strtoul(ser, NULL, 10);
+		}
+	}
 
 	if (strcmp(type, PW_TYPE_INTERFACE_Port) == 0) {
 		const char *nid, *dir, *chn;

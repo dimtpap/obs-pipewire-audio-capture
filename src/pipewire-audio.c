@@ -264,7 +264,7 @@ static const struct pw_stream_events stream_events = {
 	.io_changed = on_io_changed_cb,
 };
 
-int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, uint32_t target_id, uint32_t audio_channels)
+int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, uint32_t target_serial, uint32_t audio_channels)
 {
 	enum spa_audio_channel pos[8];
 	obs_channels_to_spa_audio_position(pos, audio_channels);
@@ -282,7 +282,12 @@ int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, uint32_t target_i
 							   SPA_AUDIO_FORMAT_F32_LE, SPA_AUDIO_FORMAT_U8P, SPA_AUDIO_FORMAT_S16P,
 							   SPA_AUDIO_FORMAT_S32P, SPA_AUDIO_FORMAT_F32P));
 
-	return pw_stream_connect(s->stream, PW_DIRECTION_INPUT, target_id,
+	struct pw_properties *stream_props = pw_properties_new(NULL, NULL);
+	pw_properties_setf(stream_props, PW_KEY_TARGET_OBJECT, "%u", target_serial);
+	pw_stream_update_properties(s->stream, &stream_props->dict);
+	pw_properties_free(stream_props);
+
+	return pw_stream_connect(s->stream, PW_DIRECTION_INPUT, PW_ID_ANY,
 							 PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS | PW_STREAM_FLAG_DONT_RECONNECT,
 							 params, 1);
 }
