@@ -326,6 +326,14 @@ static obs_properties_t *pipewire_audio_capture_properties(void *data)
 
 	obs_property_list_add_int(targets_list, obs_module_text("Default"), PW_ID_ANY);
 
+	if (!pwac->default_info.autoconnect) {
+		obs_data_t *settings = obs_source_get_settings(pwac->source);
+		/* Saved target serial may be different from connected because a previously connected
+		   node may have been replaced by one with the same name */
+		obs_data_set_int(settings, "TargetId", pwac->connected_serial);
+		obs_data_release(settings);
+	}
+
 	pw_thread_loop_lock(pwac->pw.thread_loop);
 
 	struct target_node *n;
