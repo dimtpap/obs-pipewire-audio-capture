@@ -10,6 +10,13 @@ This plugin adds 3 sources for capturing audio outputs, inputs and applications 
 - [WirePlumber](https://pipewire.pages.freedesktop.org/wireplumber/)
 
 PipeWire 0.3.62 or later is highly recommended ([#17](https://github.com/dimtpap/obs-pipewire-audio-capture/issues/17), [PipeWire#2874](https://gitlab.freedesktop.org/pipewire/pipewire/-/issues/2874))
+
+For the plugin to be able to capture applications, PipeWire should be set up to handle audio on your system.
+For most applications, the [`pipewire-pulse`](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/FAQ#should-i-uninstall-everything-pulseaudio)
+compatibility layer should be enough, but there are also `pipewire-jack` and `pipewire-alsa`.
+If applications aren't showing up in the plugin, your system may be missing one of those components.  
+See the [PipeWire wiki](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/home) for more info.
+
 ### Binary installation
 Get the `linux-pipewire-audio-(version).tar.gz` archive from the [latest release](https://github.com/dimtpap/obs-pipewire-audio-capture/releases/latest)  
 If OBS Studio is installed as a
