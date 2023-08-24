@@ -27,8 +27,6 @@
 struct target_node_port {
 	const char *channel;
 	uint32_t id;
-
-	struct obs_pw_audio_proxied_object obj;
 };
 
 struct target_node {
@@ -36,25 +34,19 @@ struct target_node {
 	const char *app_name;
 	const char *binary;
 	uint32_t id;
-	struct spa_list ports;
+	struct obs_pw_audio_proxy_list ports;
 	uint32_t *p_n_targets;
 
 	struct spa_hook node_listener;
-
-	struct obs_pw_audio_proxied_object obj;
 };
 
 struct system_sink {
 	const char *name;
 	uint32_t id;
-
-	struct obs_pw_audio_proxied_object obj;
 };
 
 struct capture_sink_link {
 	uint32_t id;
-
-	struct obs_pw_audio_proxied_object obj;
 };
 
 struct capture_sink_port {
@@ -88,12 +80,12 @@ struct obs_pw_audio_capture_app {
 		DARRAY(struct capture_sink_port) ports;
 
 		/* Links between app streams and the capture sink */
-		struct spa_list links;
+		struct obs_pw_audio_proxy_list links;
 	} sink;
 
 	/** Need the default system sink to create
 	  * the app capture sink with the same audio channels */
-	struct spa_list system_sinks;
+	struct obs_pw_audio_proxy_list system_sinks;
 	struct {
 		struct obs_pw_audio_default_node_metadata metadata;
 		struct pw_proxy *proxy;
@@ -101,7 +93,7 @@ struct obs_pw_audio_capture_app {
 		struct spa_hook proxy_listener;
 	} default_sink;
 
-	struct spa_list targets;
+	struct obs_pw_audio_proxy_list targets;
 	uint32_t n_targets;
 
 	enum match_priority match_priority;
@@ -128,7 +120,7 @@ static void register_system_sink(struct obs_pw_audio_capture_app *pwac, uint32_t
 	sink->name = bstrdup(name);
 	sink->id = global_id;
 
-	obs_pw_audio_proxied_object_init(&sink->obj, sink_proxy, &pwac->system_sinks, NULL, system_sink_destroy_cb);
+	obs_pw_audio_proxy_list_append(&pwac->system_sinks, sink_proxy);
 }
 /* ------------------------------------------------- */
 
@@ -145,11 +137,7 @@ static void node_destroy_cb(void *data)
 
 	spa_hook_remove(&node->node_listener);
 
-	struct target_node_port *p, *tp;
-	spa_list_for_each_safe(p, tp, &node->ports, obj.link)
-	{
-		pw_proxy_destroy(p->obj.proxy);
-	}
+	obs_pw_audio_proxy_list_clear(&node->ports);
 
 	(*node->p_n_targets)--;
 
@@ -171,7 +159,7 @@ static struct target_node_port *node_register_port(struct target_node *node, uin
 	port->channel = bstrdup(channel);
 	port->id = global_id;
 
-	obs_pw_audio_proxied_object_init(&port->obj, port_proxy, &node->ports, NULL, port_destroy_cb);
+	obs_pw_audio_proxy_list_append(&node->ports, port_proxy);
 
 	return port;
 }
@@ -212,11 +200,11 @@ static void register_target_node(struct obs_pw_audio_capture_app *pwac, uint32_t
 	node->binary = NULL;
 	node->id = global_id;
 	node->p_n_targets = &pwac->n_targets;
-	spa_list_init(&node->ports);
+	obs_pw_audio_proxy_list_init(&node->ports, NULL, port_destroy_cb);
 
 	pwac->n_targets++;
 
-	obs_pw_audio_proxied_object_init(&node->obj, node_proxy, &pwac->targets, NULL, node_destroy_cb);
+	obs_pw_audio_proxy_list_append(&pwac->targets, node_proxy);
 	pw_proxy_add_object_listener(node_proxy, &node->node_listener, &node_events, node);
 }
 
@@ -294,15 +282,15 @@ static void link_port_to_sink(struct obs_pw_audio_capture_app *pwac, struct targ
 	struct capture_sink_link *link = pw_proxy_get_user_data(link_proxy);
 	link->id = SPA_ID_INVALID;
 
-	obs_pw_audio_proxied_object_init(&link->obj, link_proxy, &pwac->sink.links, link_bound_cb, link_destroy_cb);
+	obs_pw_audio_proxy_list_append(&pwac->sink.links, link_proxy);
 }
 
 static void link_node_to_sink(struct obs_pw_audio_capture_app *pwac, struct target_node *node)
 {
-	struct target_node_port *p;
-	spa_list_for_each(p, &node->ports, obj.link)
+	struct target_node_port *port;
+	obs_pw_audio_proxy_list_for_each(&node->ports, port)
 	{
-		link_port_to_sink(pwac, p, node->id);
+		link_port_to_sink(pwac, port, node->id);
 	}
 }
 /* ------------------------------------------------- */
@@ -374,11 +362,7 @@ static void register_capture_sink_port(struct obs_pw_audio_capture_app *pwac, ui
 
 static void destroy_sink_links(struct obs_pw_audio_capture_app *pwac)
 {
-	struct capture_sink_link *l, *t;
-	spa_list_for_each_safe(l, t, &pwac->sink.links, obj.link)
-	{
-		pw_proxy_destroy(l->obj.proxy);
-	}
+	obs_pw_audio_proxy_list_clear(&pwac->sink.links);
 }
 
 static void connect_targets(struct obs_pw_audio_capture_app *pwac, const char *target, bool except)
@@ -399,11 +383,11 @@ static void connect_targets(struct obs_pw_audio_capture_app *pwac, const char *t
 		return;
 	}
 
-	struct target_node *n;
-	spa_list_for_each(n, &pwac->targets, obj.link)
+	struct target_node *node;
+	obs_pw_audio_proxy_list_for_each(&pwac->targets, node)
 	{
-		if (node_is_targeted(pwac, n)) {
-			link_node_to_sink(pwac, n);
+		if (node_is_targeted(pwac, node)) {
+			link_node_to_sink(pwac, node);
 		}
 	}
 }
@@ -568,7 +552,7 @@ static void default_node_cb(void *data, const char *name)
 
 	/* Find the new default sink and bind to it to get its channel info */
 	struct system_sink *t, *s = NULL;
-	spa_list_for_each(t, &pwac->system_sinks, obj.link)
+	obs_pw_audio_proxy_list_for_each(&pwac->system_sinks, t)
 	{
 		if (strcmp(name, t->name) == 0) {
 			s = t;
@@ -636,7 +620,7 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions, const ch
 		} else if (astrcmpi(dir, "out") == 0) {
 			/* Possibly a target port */
 			struct target_node *t, *n = NULL;
-			spa_list_for_each(t, &pwac->targets, obj.link)
+			obs_pw_audio_proxy_list_for_each(&pwac->targets, t)
 			{
 				if (t->id == node_id) {
 					n = t;
@@ -705,9 +689,9 @@ static void *pipewire_audio_capture_app_create(obs_data_t *settings, obs_source_
 		return NULL;
 	}
 
-	spa_list_init(&pwac->targets);
-	spa_list_init(&pwac->sink.links);
-	spa_list_init(&pwac->system_sinks);
+	obs_pw_audio_proxy_list_init(&pwac->targets, NULL, node_destroy_cb);
+	obs_pw_audio_proxy_list_init(&pwac->sink.links, link_bound_cb, link_destroy_cb);
+	obs_pw_audio_proxy_list_init(&pwac->system_sinks, NULL, system_sink_destroy_cb);
 
 	pwac->sink.id = SPA_ID_INVALID;
 	dstr_init(&pwac->sink.position);
@@ -755,7 +739,7 @@ static bool match_priority_modified(void *data, obs_properties_t *properties, ob
 	da_reserve(targets_arr, pwac->n_targets);
 
 	struct target_node *node;
-	spa_list_for_each(node, &pwac->targets, obj.link)
+	obs_pw_audio_proxy_list_for_each(&pwac->targets, node)
 	{
 		const char *display;
 
@@ -859,16 +843,8 @@ static void pipewire_audio_capture_app_destroy(void *data)
 
 	pw_thread_loop_lock(pwac->pw.thread_loop);
 
-	struct target_node *n, *tn;
-	spa_list_for_each_safe(n, tn, &pwac->targets, obj.link)
-	{
-		pw_proxy_destroy(n->obj.proxy);
-	}
-	struct system_sink *s, *ts;
-	spa_list_for_each_safe(s, ts, &pwac->system_sinks, obj.link)
-	{
-		pw_proxy_destroy(s->obj.proxy);
-	}
+	obs_pw_audio_proxy_list_clear(&pwac->targets);
+	obs_pw_audio_proxy_list_clear(&pwac->system_sinks);
 
 	destroy_capture_sink(pwac);
 

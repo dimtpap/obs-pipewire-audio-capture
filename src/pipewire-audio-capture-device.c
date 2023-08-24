@@ -33,8 +33,6 @@ struct target_node {
 	struct spa_hook node_listener;
 
 	struct obs_pw_audio_capture_device *pwac;
-
-	struct obs_pw_audio_proxied_object obj;
 };
 
 enum capture_type {
@@ -56,7 +54,7 @@ struct obs_pw_audio_capture_device {
 		struct dstr name;
 	} default_info;
 
-	struct spa_list targets;
+	struct obs_pw_audio_proxy_list targets;
 
 	struct dstr target_name;
 	uint32_t connected_serial;
@@ -92,7 +90,7 @@ static void start_streaming(struct obs_pw_audio_capture_device *pwac, struct tar
 struct target_node *get_node_by_name(struct obs_pw_audio_capture_device *pwac, const char *name)
 {
 	struct target_node *n;
-	spa_list_for_each(n, &pwac->targets, obj.link)
+	obs_pw_audio_proxy_list_for_each(&pwac->targets, n)
 	{
 		if (strcmp(n->name, name) == 0) {
 			return n;
@@ -104,7 +102,7 @@ struct target_node *get_node_by_name(struct obs_pw_audio_capture_device *pwac, c
 struct target_node *get_node_by_serial(struct obs_pw_audio_capture_device *pwac, uint32_t serial)
 {
 	struct target_node *n;
-	spa_list_for_each(n, &pwac->targets, obj.link)
+	obs_pw_audio_proxy_list_for_each(&pwac->targets, n)
 	{
 		if (n->serial == serial) {
 			return n;
@@ -184,10 +182,10 @@ static void register_target_node(struct obs_pw_audio_capture_device *pwac, const
 	n->channels = 0;
 	n->pwac = pwac;
 
-	obs_pw_audio_proxied_object_init(&n->obj, node_proxy, &pwac->targets, NULL, node_destroy_cb);
+	obs_pw_audio_proxy_list_append(&pwac->targets, node_proxy);
 
 	spa_zero(n->node_listener);
-	pw_proxy_add_object_listener(n->obj.proxy, &n->node_listener, &node_events, n);
+	pw_proxy_add_object_listener(node_proxy, &n->node_listener, &node_events, n);
 }
 /* ------------------------------------------------- */
 
@@ -288,7 +286,7 @@ static void *pipewire_audio_capture_create(obs_data_t *settings, obs_source_t *s
 	pwac->default_info.node_serial = SPA_ID_INVALID;
 	pwac->connected_serial = SPA_ID_INVALID;
 
-	spa_list_init(&pwac->targets);
+	obs_pw_audio_proxy_list_init(&pwac->targets, NULL, node_destroy_cb);
 
 	if (obs_data_get_int(settings, "TargetId") != PW_ID_ANY) {
 		/** Reset id setting, PipeWire node ids may not persist between sessions.
@@ -345,7 +343,7 @@ static obs_properties_t *pipewire_audio_capture_properties(void *data)
 	pw_thread_loop_lock(pwac->pw.thread_loop);
 
 	struct target_node *n;
-	spa_list_for_each(n, &pwac->targets, obj.link)
+	obs_pw_audio_proxy_list_for_each(&pwac->targets, n)
 	{
 		obs_property_list_add_int(targets_list, n->friendly_name, n->serial);
 	}
@@ -402,11 +400,7 @@ static void pipewire_audio_capture_destroy(void *data)
 
 	pw_thread_loop_lock(pwac->pw.thread_loop);
 
-	struct target_node *n, *tn;
-	spa_list_for_each_safe(n, tn, &pwac->targets, obj.link)
-	{
-		pw_proxy_destroy(n->obj.proxy);
-	}
+	obs_pw_audio_proxy_list_clear(&pwac->targets);
 
 	if (pwac->default_info.metadata.proxy) {
 		pw_proxy_destroy(pwac->default_info.metadata.proxy);

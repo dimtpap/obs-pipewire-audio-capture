@@ -503,6 +503,8 @@ static void on_proxy_destroy_cb(void *data)
 	if (obj->destroy_callback) {
 		obj->destroy_callback(pw_proxy_get_user_data(obj->proxy));
 	}
+
+	bfree(data);
 }
 
 static const struct pw_proxy_events proxy_events = {
@@ -524,5 +526,35 @@ void obs_pw_audio_proxied_object_init(struct obs_pw_audio_proxied_object *obj, s
 
 	spa_zero(obj->proxy_listener);
 	pw_proxy_add_listener(obj->proxy, &obj->proxy_listener, &proxy_events, obj);
+}
+
+void *obs_pw_audio_proxied_object_get_user_data(struct obs_pw_audio_proxied_object *obj)
+{
+	return pw_proxy_get_user_data(obj->proxy);
+}
+
+void obs_pw_audio_proxy_list_init(struct obs_pw_audio_proxy_list *list,
+								  void (*bound_callback)(void *data, uint32_t global_id),
+								  void (*destroy_callback)(void *data))
+{
+	spa_list_init(&list->list);
+
+	list->bound_callback = bound_callback;
+	list->destroy_callback = destroy_callback;
+}
+
+void obs_pw_audio_proxy_list_append(struct obs_pw_audio_proxy_list *list, struct pw_proxy *proxy)
+{
+	struct obs_pw_audio_proxied_object *obj = bmalloc(sizeof(struct obs_pw_audio_proxied_object));
+	obs_pw_audio_proxied_object_init(obj, proxy, &list->list, list->bound_callback, list->destroy_callback);
+}
+
+void obs_pw_audio_proxy_list_clear(struct obs_pw_audio_proxy_list *list)
+{
+	struct obs_pw_audio_proxied_object *obj, *temp;
+	spa_list_for_each_safe(obj, temp, &list->list, link)
+	{
+		pw_proxy_destroy(obj->proxy);
+	}
 }
 /* ------------------------------------------------- */

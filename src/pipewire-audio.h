@@ -119,8 +119,11 @@ bool obs_pw_audio_default_node_metadata_listen(struct obs_pw_audio_default_node_
 											   void (*default_node_callback)(void *data, const char *name), void *data);
 /* ------------------------------------------------- */
 
+/* Helpers for storing remote PipeWire objects */
+
 /**
- * Generic proxy handler for PipeWire objects tracked in lists
+ * Wrapper over a PipeWire proxy that's a member of a spa_list.
+ * Automatically handles adding and removing itself from the list.
  */
 struct obs_pw_audio_proxied_object {
 	void (*bound_callback)(void *data, uint32_t global_id);
@@ -133,11 +136,36 @@ struct obs_pw_audio_proxied_object {
 };
 
 /**
- * Initialize a proxied object
+ * Get the user data of a proxied object
  */
-void obs_pw_audio_proxied_object_init(struct obs_pw_audio_proxied_object *obj, struct pw_proxy *proxy,
-									  struct spa_list *list, void (*bound_callback)(void *data, uint32_t global_id),
-									  void (*destroy_callback)(void *data));
+void *obs_pw_audio_proxied_object_get_user_data(struct obs_pw_audio_proxied_object *obj);
+
+/**
+ * Convenience wrapper over spa_lists that holds proxied objects
+ */
+struct obs_pw_audio_proxy_list {
+	struct spa_list list;
+	void (*bound_callback)(void *data, uint32_t global_id);
+	void (*destroy_callback)(void *data);
+};
+
+void obs_pw_audio_proxy_list_init(struct obs_pw_audio_proxy_list *list,
+								  void (*bound_callback)(void *data, uint32_t global_id),
+								  void (*destroy_callback)(void *data));
+
+void obs_pw_audio_proxy_list_append(struct obs_pw_audio_proxy_list *list, struct pw_proxy *proxy);
+
+/**
+ * Destroy all stored proxies.
+ */
+void obs_pw_audio_proxy_list_clear(struct obs_pw_audio_proxy_list *list);
+
+#define obs_pw_audio_proxy_list_for_each(proxy_list, item)                                  \
+	for (struct obs_pw_audio_proxied_object *_obj =                                         \
+			 spa_list_first(&(proxy_list)->list, struct obs_pw_audio_proxied_object, link); \
+		 !spa_list_is_end(_obj, &(proxy_list)->list, link) &&                               \
+		 (item = (__typeof__(*(item)) *)obs_pw_audio_proxied_object_get_user_data(_obj));   \
+		 _obj = spa_list_next(_obj, link))
 /* ------------------------------------------------- */
 
 /* Sources */
