@@ -171,20 +171,20 @@ static void node_destroy_cb(void *data)
 static void register_target_node(struct obs_pw_audio_capture_device *pwac, const char *friendly_name, const char *name,
 								 uint32_t object_serial, uint32_t global_id)
 {
-	struct pw_proxy *node_proxy =
-		pw_registry_bind(pwac->pw.registry, global_id, PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, 0);
+	struct pw_proxy *node_proxy = pw_registry_bind(pwac->pw.registry, global_id, PW_TYPE_INTERFACE_Node,
+												   PW_VERSION_NODE, sizeof(struct target_node));
 	if (!node_proxy) {
 		return;
 	}
 
-	struct target_node *n = bmalloc(sizeof(struct target_node));
+	struct target_node *n = pw_proxy_get_user_data(node_proxy);
 	n->friendly_name = bstrdup(friendly_name);
 	n->name = bstrdup(name);
 	n->serial = object_serial;
 	n->channels = 0;
 	n->pwac = pwac;
 
-	obs_pw_audio_proxied_object_init(&n->obj, node_proxy, &pwac->targets, NULL, node_destroy_cb, n);
+	obs_pw_audio_proxied_object_init(&n->obj, node_proxy, &pwac->targets, NULL, node_destroy_cb);
 
 	spa_zero(n->node_listener);
 	pw_proxy_add_object_listener(n->obj.proxy, &n->node_listener, &node_events, n);

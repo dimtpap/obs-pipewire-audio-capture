@@ -483,7 +483,7 @@ static void on_proxy_bound_cb(void *data, uint32_t global_id)
 {
 	struct obs_pw_audio_proxied_object *obj = data;
 	if (obj->bound_callback) {
-		obj->bound_callback(obj->data, global_id);
+		obj->bound_callback(pw_proxy_get_user_data(obj->proxy), global_id);
 	}
 }
 
@@ -501,10 +501,8 @@ static void on_proxy_destroy_cb(void *data)
 	spa_list_remove(&obj->link);
 
 	if (obj->destroy_callback) {
-		obj->destroy_callback(obj->data);
+		obj->destroy_callback(pw_proxy_get_user_data(obj->proxy));
 	}
-
-	bfree(obj->data);
 }
 
 static const struct pw_proxy_events proxy_events = {
@@ -516,12 +514,11 @@ static const struct pw_proxy_events proxy_events = {
 
 void obs_pw_audio_proxied_object_init(struct obs_pw_audio_proxied_object *obj, struct pw_proxy *proxy,
 									  struct spa_list *list, void (*bound_callback)(void *data, uint32_t global_id),
-									  void (*destroy_callback)(void *data), void *data)
+									  void (*destroy_callback)(void *data))
 {
 	obj->proxy = proxy;
 	obj->bound_callback = bound_callback;
 	obj->destroy_callback = destroy_callback;
-	obj->data = data;
 
 	spa_list_append(list, &obj->link);
 

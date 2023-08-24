@@ -118,17 +118,17 @@ static void system_sink_destroy_cb(void *data)
 
 static void register_system_sink(struct obs_pw_audio_capture_app *pwac, uint32_t global_id, const char *name)
 {
-	struct pw_proxy *sink_proxy =
-		pw_registry_bind(pwac->pw.registry, global_id, PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, 0);
+	struct pw_proxy *sink_proxy = pw_registry_bind(pwac->pw.registry, global_id, PW_TYPE_INTERFACE_Node,
+												   PW_VERSION_NODE, sizeof(struct system_sink));
 	if (!sink_proxy) {
 		return;
 	}
 
-	struct system_sink *sink = bmalloc(sizeof(struct system_sink));
+	struct system_sink *sink = pw_proxy_get_user_data(sink_proxy);
 	sink->name = bstrdup(name);
 	sink->id = global_id;
 
-	obs_pw_audio_proxied_object_init(&sink->obj, sink_proxy, &pwac->system_sinks, NULL, system_sink_destroy_cb, sink);
+	obs_pw_audio_proxied_object_init(&sink->obj, sink_proxy, &pwac->system_sinks, NULL, system_sink_destroy_cb);
 }
 /* ------------------------------------------------- */
 
@@ -161,16 +161,17 @@ static void node_destroy_cb(void *data)
 static struct target_node_port *node_register_port(struct target_node *node, uint32_t global_id,
 												   struct pw_registry *registry, const char *channel)
 {
-	struct pw_proxy *port_proxy = pw_registry_bind(registry, global_id, PW_TYPE_INTERFACE_Port, PW_VERSION_PORT, 0);
+	struct pw_proxy *port_proxy =
+		pw_registry_bind(registry, global_id, PW_TYPE_INTERFACE_Port, PW_VERSION_PORT, sizeof(struct target_node_port));
 	if (!port_proxy) {
 		return NULL;
 	}
 
-	struct target_node_port *port = bmalloc(sizeof(struct target_node_port));
+	struct target_node_port *port = pw_proxy_get_user_data(port_proxy);
 	port->channel = bstrdup(channel);
 	port->id = global_id;
 
-	obs_pw_audio_proxied_object_init(&port->obj, port_proxy, &node->ports, NULL, port_destroy_cb, port);
+	obs_pw_audio_proxied_object_init(&port->obj, port_proxy, &node->ports, NULL, port_destroy_cb);
 
 	return port;
 }
@@ -199,13 +200,13 @@ static const struct pw_node_events node_events = {
 static void register_target_node(struct obs_pw_audio_capture_app *pwac, uint32_t global_id, const char *app_name,
 								 const char *name)
 {
-	struct pw_proxy *node_proxy =
-		pw_registry_bind(pwac->pw.registry, global_id, PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, 0);
+	struct pw_proxy *node_proxy = pw_registry_bind(pwac->pw.registry, global_id, PW_TYPE_INTERFACE_Node,
+												   PW_VERSION_NODE, sizeof(struct target_node));
 	if (!node_proxy) {
 		return;
 	}
 
-	struct target_node *node = bmalloc(sizeof(struct target_node));
+	struct target_node *node = pw_proxy_get_user_data(node_proxy);
 	node->name = bstrdup(name);
 	node->app_name = bstrdup(app_name);
 	node->binary = NULL;
@@ -215,7 +216,7 @@ static void register_target_node(struct obs_pw_audio_capture_app *pwac, uint32_t
 
 	pwac->n_targets++;
 
-	obs_pw_audio_proxied_object_init(&node->obj, node_proxy, &pwac->targets, NULL, node_destroy_cb, node);
+	obs_pw_audio_proxied_object_init(&node->obj, node_proxy, &pwac->targets, NULL, node_destroy_cb);
 	pw_proxy_add_object_listener(node_proxy, &node->node_listener, &node_events, node);
 }
 
@@ -278,7 +279,8 @@ static void link_port_to_sink(struct obs_pw_audio_capture_app *pwac, struct targ
 	pw_properties_setf(link_props, PW_KEY_LINK_INPUT_PORT, "%u", p);
 
 	struct pw_proxy *link_proxy = pw_core_create_object(pwac->pw.core, "link-factory", PW_TYPE_INTERFACE_Link,
-														PW_VERSION_LINK, &link_props->dict, 0);
+														PW_VERSION_LINK, &link_props->dict,
+														sizeof(struct capture_sink_link));
 
 	obs_pw_audio_instance_sync(&pwac->pw);
 
@@ -289,10 +291,10 @@ static void link_port_to_sink(struct obs_pw_audio_capture_app *pwac, struct targ
 		return;
 	}
 
-	struct capture_sink_link *link = bmalloc(sizeof(struct capture_sink_link));
+	struct capture_sink_link *link = pw_proxy_get_user_data(link_proxy);
 	link->id = SPA_ID_INVALID;
 
-	obs_pw_audio_proxied_object_init(&link->obj, link_proxy, &pwac->sink.links, link_bound_cb, link_destroy_cb, link);
+	obs_pw_audio_proxied_object_init(&link->obj, link_proxy, &pwac->sink.links, link_bound_cb, link_destroy_cb);
 }
 
 static void link_node_to_sink(struct obs_pw_audio_capture_app *pwac, struct target_node *node)

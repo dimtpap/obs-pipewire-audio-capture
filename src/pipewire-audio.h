@@ -123,8 +123,6 @@ bool obs_pw_audio_default_node_metadata_listen(struct obs_pw_audio_default_node_
  * Generic proxy handler for PipeWire objects tracked in lists
  */
 struct obs_pw_audio_proxied_object {
-	void *data;
-
 	void (*bound_callback)(void *data, uint32_t global_id);
 	void (*destroy_callback)(void *data);
 
@@ -139,7 +137,7 @@ struct obs_pw_audio_proxied_object {
  */
 void obs_pw_audio_proxied_object_init(struct obs_pw_audio_proxied_object *obj, struct pw_proxy *proxy,
 									  struct spa_list *list, void (*bound_callback)(void *data, uint32_t global_id),
-									  void (*destroy_callback)(void *data), void *data);
+									  void (*destroy_callback)(void *data));
 /* ------------------------------------------------- */
 
 /* Sources */
