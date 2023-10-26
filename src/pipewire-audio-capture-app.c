@@ -33,11 +33,20 @@ struct target_node {
 	const char *name;
 	const char *app_name;
 	const char *binary;
+	uint32_t client_id;
 	uint32_t id;
 	struct obs_pw_audio_proxy_list ports;
 	uint32_t *p_n_targets;
 
 	struct spa_hook node_listener;
+};
+
+struct target_client {
+	const char *app_name;
+	const char *binary;
+	uint32_t id;
+
+	struct spa_hook client_listener;
 };
 
 struct system_sink {
@@ -93,6 +102,8 @@ struct obs_pw_audio_capture_app {
 		struct spa_hook proxy_listener;
 	} default_sink;
 
+	struct obs_pw_audio_proxy_list clients;
+
 	struct obs_pw_audio_proxy_list targets;
 	uint32_t n_targets;
 
@@ -123,6 +134,54 @@ static void register_system_sink(struct obs_pw_audio_capture_app *pwac, uint32_t
 	obs_pw_audio_proxy_list_append(&pwac->system_sinks, sink_proxy);
 }
 /* ------------------------------------------------- */
+
+/* Target clients */
+static void client_destroy_cb(void *data)
+{
+	struct target_client *client = data;
+	bfree((void *)client->app_name);
+	bfree((void *)client->binary);
+
+	spa_hook_remove(&client->client_listener);
+}
+
+static void on_client_info_cb(void *data, const struct pw_client_info *info)
+{
+	if ((info->change_mask & PW_CLIENT_CHANGE_MASK_PROPS) == 0 || !info->props || !info->props->n_items) {
+		return;
+	}
+
+	const char *binary = spa_dict_lookup(info->props, PW_KEY_APP_PROCESS_BINARY);
+	if (!binary) {
+		return;
+	}
+
+	struct target_client *client = data;
+	bfree((void *)client->binary);
+	client->binary = bstrdup(binary);
+}
+
+static const struct pw_client_events client_events = {
+	PW_VERSION_CLIENT_EVENTS,
+	.info = on_client_info_cb,
+};
+
+static void register_target_client(struct obs_pw_audio_capture_app *pwac, uint32_t global_id, const char *app_name)
+{
+	struct pw_proxy *client_proxy = pw_registry_bind(pwac->pw.registry, global_id, PW_TYPE_INTERFACE_Client,
+													 PW_VERSION_CLIENT, sizeof(struct target_client));
+	if (!client_proxy) {
+		return;
+	}
+
+	struct target_client *client = pw_proxy_get_user_data(client_proxy);
+	client->binary = NULL;
+	client->app_name = bstrdup(app_name);
+	client->id = global_id;
+
+	obs_pw_audio_proxy_list_append(&pwac->clients, client_proxy);
+	pw_proxy_add_object_listener(client_proxy, &client->client_listener, &client_events, client);
+}
 
 /* Target nodes and ports */
 static void port_destroy_cb(void *data)
@@ -185,8 +244,8 @@ static const struct pw_node_events node_events = {
 	.info = on_node_info_cb,
 };
 
-static void register_target_node(struct obs_pw_audio_capture_app *pwac, uint32_t global_id, const char *app_name,
-								 const char *name)
+static void register_target_node(struct obs_pw_audio_capture_app *pwac, uint32_t global_id, uint32_t client_id,
+								 const char *app_name, const char *name)
 {
 	struct pw_proxy *node_proxy = pw_registry_bind(pwac->pw.registry, global_id, PW_TYPE_INTERFACE_Node,
 												   PW_VERSION_NODE, sizeof(struct target_node));
@@ -199,6 +258,7 @@ static void register_target_node(struct obs_pw_audio_capture_app *pwac, uint32_t
 	node->app_name = bstrdup(app_name);
 	node->binary = NULL;
 	node->id = global_id;
+	node->client_id = client_id;
 	node->p_n_targets = &pwac->n_targets;
 	obs_pw_audio_proxy_list_init(&node->ports, NULL, port_destroy_cb);
 
@@ -214,9 +274,23 @@ static bool node_is_targeted(struct obs_pw_audio_capture_app *pwac, struct targe
 		return false;
 	}
 
-	return (dstr_cmpi(&pwac->target, node->binary) == 0 || dstr_cmpi(&pwac->target, node->app_name) == 0 ||
-			dstr_cmpi(&pwac->target, node->name) == 0) ^
-		   pwac->except_app;
+	bool targeted = (dstr_cmpi(&pwac->target, node->binary) == 0 || dstr_cmpi(&pwac->target, node->app_name) == 0 ||
+					 dstr_cmpi(&pwac->target, node->name) == 0);
+
+	if (!targeted && node->client_id) {
+		struct target_client *client;
+		obs_pw_audio_proxy_list_for_each(&pwac->clients, client)
+		{
+			if (client->id == node->client_id) {
+				targeted =
+					(dstr_cmpi(&pwac->target, client->binary) == 0 || dstr_cmpi(&pwac->target, client->app_name) == 0);
+
+				break;
+			}
+		}
+	}
+
+	return targeted ^ pwac->except_app;
 }
 /* ------------------------------------------------- */
 
@@ -647,15 +721,24 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions, const ch
 		if (strcmp(media_class, "Stream/Output/Audio") == 0) {
 			/* Target node */
 			const char *node_app_name = spa_dict_lookup(props, PW_KEY_APP_NAME);
-
 			if (!node_app_name) {
 				node_app_name = node_name;
 			}
 
-			register_target_node(pwac, id, node_app_name, node_name);
+			uint32_t client_id = 0;
+			const char *client_id_str = spa_dict_lookup(props, PW_KEY_CLIENT_ID);
+			if (client_id_str) {
+				client_id = strtoul(client_id_str, NULL, 10);
+			}
+
+			register_target_node(pwac, id, client_id, node_app_name, node_name);
 		} else if (strcmp(media_class, "Audio/Sink") == 0) {
 			register_system_sink(pwac, id, node_name);
 		}
+
+	} else if (strcmp(type, PW_TYPE_INTERFACE_Client) == 0) {
+		const char *client_app_name = spa_dict_lookup(props, PW_KEY_APP_NAME);
+		register_target_client(pwac, id, client_app_name);
 	} else if (strcmp(type, PW_TYPE_INTERFACE_Metadata) == 0) {
 		const char *name = spa_dict_lookup(props, PW_KEY_METADATA_NAME);
 		if (!name || strcmp(name, "default") != 0) {
@@ -690,6 +773,7 @@ static void *pipewire_audio_capture_app_create(obs_data_t *settings, obs_source_
 	}
 
 	obs_pw_audio_proxy_list_init(&pwac->targets, NULL, node_destroy_cb);
+	obs_pw_audio_proxy_list_init(&pwac->clients, NULL, client_destroy_cb);
 	obs_pw_audio_proxy_list_init(&pwac->sink.links, link_bound_cb, link_destroy_cb);
 	obs_pw_audio_proxy_list_init(&pwac->system_sinks, NULL, system_sink_destroy_cb);
 
@@ -720,6 +804,17 @@ static int cmp_targets(const void *a, const void *b)
 	return strcmp(a_str, b_str);
 }
 
+static const char *choose_display_string(struct obs_pw_audio_capture_app *pwac, const char *binary,
+										 const char *app_name)
+{
+	switch (pwac->match_priority) {
+	case BINARY_NAME:
+		return binary ? binary : app_name;
+	case APP_NAME:
+		return app_name ? app_name : binary;
+	}
+}
+
 static bool match_priority_modified(void *data, obs_properties_t *properties, obs_property_t *property,
 									obs_data_t *settings)
 {
@@ -741,22 +836,23 @@ static bool match_priority_modified(void *data, obs_properties_t *properties, ob
 	struct target_node *node;
 	obs_pw_audio_proxy_list_for_each(&pwac->targets, node)
 	{
-		const char *display;
-
-		switch (pwac->match_priority) {
-		case BINARY_NAME:
-			display = node->binary ? node->binary : node->app_name;
-			break;
-		case APP_NAME:
-			display = node->app_name ? node->app_name : node->binary;
-			break;
-		}
+		const char *display = choose_display_string(pwac, node->binary, node->app_name);
 
 		if (!display) {
 			display = node->name;
 		}
 
 		da_push_back(targets_arr, &display);
+	}
+
+	struct target_client *client;
+	obs_pw_audio_proxy_list_for_each(&pwac->clients, client)
+	{
+		const char *display = choose_display_string(pwac, client->binary, client->app_name);
+
+		if (display) {
+			da_push_back(targets_arr, &display);
+		}
 	}
 
 	/* Show just one entry per target */
@@ -845,6 +941,8 @@ static void pipewire_audio_capture_app_destroy(void *data)
 
 	obs_pw_audio_proxy_list_clear(&pwac->targets);
 	obs_pw_audio_proxy_list_clear(&pwac->system_sinks);
+
+	obs_pw_audio_proxy_list_clear(&pwac->clients);
 
 	destroy_capture_sink(pwac);
 
