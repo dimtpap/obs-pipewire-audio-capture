@@ -231,7 +231,8 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions, const ch
 		/* Target device */
 		if ((pwac->capture_type == INPUT &&
 			 (strcmp(media_class, "Audio/Source") == 0 || strcmp(media_class, "Audio/Source/Virtual") == 0)) ||
-			(pwac->capture_type == OUTPUT && strcmp(media_class, "Audio/Sink") == 0)) {
+			(pwac->capture_type == OUTPUT &&
+			 (strcmp(media_class, "Audio/Sink") == 0 || strcmp(media_class, "Audio/Duplex") == 0))) {
 
 			const char *ser = spa_dict_lookup(props, PW_KEY_OBJECT_SERIAL);
 			if (!ser) {
