@@ -62,10 +62,6 @@ struct obs_pw_audio_capture_device {
 
 static void start_streaming(struct obs_pw_audio_capture_device *pwac, struct target_node *node)
 {
-	if (!node || !node->channels) {
-		return;
-	}
-
 	dstr_copy(&pwac->target_name, node->name);
 
 	if (pw_stream_get_state(pwac->pw.audio.stream, NULL) != PW_STREAM_STATE_UNCONNECTED) {
@@ -73,7 +69,13 @@ static void start_streaming(struct obs_pw_audio_capture_device *pwac, struct tar
 			/* Already connected to this node */
 			return;
 		}
+
 		pw_stream_disconnect(pwac->pw.audio.stream);
+		pwac->connected_serial = SPA_ID_INVALID;
+	}
+
+	if (!node->channels) {
+		return;
 	}
 
 	if (obs_pw_audio_stream_connect(&pwac->pw.audio, node->serial, node->channels) == 0) {
