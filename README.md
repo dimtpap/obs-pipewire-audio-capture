@@ -26,7 +26,7 @@ If OBS Studio is installed as a
   or run `flatpak override --filesystem=xdg-run/pipewire-0 com.obsproject.Studio` and then open OBS as usual
 
 ### Building and installing
-Ensure you have CMake, PipeWire and OBS Studio/libobs development packages, then run these commands
+Ensure you have CMake, PipeWire and OBS Studio/libobs development packages, then in the repo's root:
 ```sh
 cmake -B build -DCMAKE_INSTALL_PREFIX="/usr" -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cd build
