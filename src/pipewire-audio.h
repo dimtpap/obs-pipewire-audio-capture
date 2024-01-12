@@ -160,12 +160,20 @@ void obs_pw_audio_proxy_list_append(struct obs_pw_audio_proxy_list *list, struct
  */
 void obs_pw_audio_proxy_list_clear(struct obs_pw_audio_proxy_list *list);
 
-#define obs_pw_audio_proxy_list_for_each(proxy_list, item)                                  \
-	for (struct obs_pw_audio_proxied_object *_obj =                                         \
-			 spa_list_first(&(proxy_list)->list, struct obs_pw_audio_proxied_object, link); \
-		 !spa_list_is_end(_obj, &(proxy_list)->list, link) &&                               \
-		 (item = (__typeof__(*(item)) *)obs_pw_audio_proxied_object_get_user_data(_obj));   \
-		 _obj = spa_list_next(_obj, link))
+/**
+ * Iterator over all user data of the proxies in the list
+ */
+struct obs_pw_audio_proxy_list_iter {
+	struct obs_pw_audio_proxy_list *proxy_list;
+	struct obs_pw_audio_proxied_object *current;
+};
+
+void obs_pw_audio_proxy_list_iter_init(struct obs_pw_audio_proxy_list_iter *iter, struct obs_pw_audio_proxy_list *list);
+
+/**
+ * @return true when there are more items to process, false otherwise
+ */
+bool obs_pw_audio_proxy_list_iter_next(struct obs_pw_audio_proxy_list_iter *iter, void **proxy_user_data);
 /* ------------------------------------------------- */
 
 /* Sources */

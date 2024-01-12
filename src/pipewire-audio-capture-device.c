@@ -91,25 +91,31 @@ static void start_streaming(struct obs_pw_audio_capture_device *pwac, struct tar
 
 struct target_node *get_node_by_name(struct obs_pw_audio_capture_device *pwac, const char *name)
 {
-	struct target_node *n;
-	obs_pw_audio_proxy_list_for_each(&pwac->targets, n)
-	{
-		if (strcmp(n->name, name) == 0) {
-			return n;
+	struct obs_pw_audio_proxy_list_iter iter;
+	obs_pw_audio_proxy_list_iter_init(&iter, &pwac->targets);
+
+	struct target_node *node;
+	while (obs_pw_audio_proxy_list_iter_next(&iter, (void **)&node)) {
+		if (strcmp(node->name, name) == 0) {
+			return node;
 		}
 	}
+
 	return NULL;
 }
 
 struct target_node *get_node_by_serial(struct obs_pw_audio_capture_device *pwac, uint32_t serial)
 {
-	struct target_node *n;
-	obs_pw_audio_proxy_list_for_each(&pwac->targets, n)
-	{
-		if (n->serial == serial) {
-			return n;
+	struct obs_pw_audio_proxy_list_iter iter;
+	obs_pw_audio_proxy_list_iter_init(&iter, &pwac->targets);
+
+	struct target_node *node;
+	while (obs_pw_audio_proxy_list_iter_next(&iter, (void **)&node)) {
+		if (node->serial == serial) {
+			return node;
 		}
 	}
+
 	return NULL;
 }
 
@@ -345,10 +351,12 @@ static obs_properties_t *pipewire_audio_capture_properties(void *data)
 
 	pw_thread_loop_lock(pwac->pw.thread_loop);
 
-	struct target_node *n;
-	obs_pw_audio_proxy_list_for_each(&pwac->targets, n)
-	{
-		obs_property_list_add_int(targets_list, n->friendly_name, n->serial);
+	struct obs_pw_audio_proxy_list_iter iter;
+	obs_pw_audio_proxy_list_iter_init(&iter, &pwac->targets);
+
+	struct target_node *node;
+	while (obs_pw_audio_proxy_list_iter_next(&iter, (void **)&node)) {
+		obs_property_list_add_int(targets_list, node->friendly_name, node->serial);
 	}
 
 	pw_thread_loop_unlock(pwac->pw.thread_loop);

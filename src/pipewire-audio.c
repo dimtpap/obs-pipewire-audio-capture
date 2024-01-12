@@ -557,4 +557,26 @@ void obs_pw_audio_proxy_list_clear(struct obs_pw_audio_proxy_list *list)
 		pw_proxy_destroy(obj->proxy);
 	}
 }
+
+void obs_pw_audio_proxy_list_iter_init(struct obs_pw_audio_proxy_list_iter *iter, struct obs_pw_audio_proxy_list *list)
+{
+	iter->proxy_list = list;
+	iter->current = spa_list_first(&list->list, struct obs_pw_audio_proxied_object, link);
+}
+
+bool obs_pw_audio_proxy_list_iter_next(struct obs_pw_audio_proxy_list_iter *iter, void **proxy_user_data)
+{
+	if (spa_list_is_empty(&iter->proxy_list->list)) {
+		return false;
+	}
+
+	if (spa_list_is_end(iter->current, &iter->proxy_list->list, link)) {
+		return false;
+	}
+
+	*proxy_user_data = obs_pw_audio_proxied_object_get_user_data(iter->current);
+	iter->current = spa_list_next(iter->current, link);
+
+	return true;
+}
 /* ------------------------------------------------- */
