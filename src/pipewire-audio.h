@@ -125,15 +125,7 @@ bool obs_pw_audio_default_node_metadata_listen(struct obs_pw_audio_default_node_
  * Wrapper over a PipeWire proxy that's a member of a spa_list.
  * Automatically handles adding and removing itself from the list.
  */
-struct obs_pw_audio_proxied_object {
-	void (*bound_callback)(void *data, uint32_t global_id);
-	void (*destroy_callback)(void *data);
-
-	struct pw_proxy *proxy;
-	struct spa_hook proxy_listener;
-
-	struct spa_list link;
-};
+struct obs_pw_audio_proxied_object;
 
 /**
  * Get the user data of a proxied object

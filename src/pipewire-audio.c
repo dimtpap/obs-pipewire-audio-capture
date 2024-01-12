@@ -479,6 +479,16 @@ bool obs_pw_audio_default_node_metadata_listen(struct obs_pw_audio_default_node_
 /* ------------------------------------------------- */
 
 /* Proxied objects */
+struct obs_pw_audio_proxied_object {
+	void (*bound_callback)(void *data, uint32_t global_id);
+	void (*destroy_callback)(void *data);
+
+	struct pw_proxy *proxy;
+	struct spa_hook proxy_listener;
+
+	struct spa_list link;
+};
+
 static void on_proxy_bound_cb(void *data, uint32_t global_id)
 {
 	struct obs_pw_audio_proxied_object *obj = data;
@@ -514,10 +524,12 @@ static const struct pw_proxy_events proxy_events = {
 	.destroy = on_proxy_destroy_cb,
 };
 
-void obs_pw_audio_proxied_object_init(struct obs_pw_audio_proxied_object *obj, struct pw_proxy *proxy,
-									  struct spa_list *list, void (*bound_callback)(void *data, uint32_t global_id),
-									  void (*destroy_callback)(void *data))
+void obs_pw_audio_proxied_object_new(struct pw_proxy *proxy, struct spa_list *list,
+									 void (*bound_callback)(void *data, uint32_t global_id),
+									 void (*destroy_callback)(void *data))
 {
+	struct obs_pw_audio_proxied_object *obj = bmalloc(sizeof(struct obs_pw_audio_proxied_object));
+
 	obj->proxy = proxy;
 	obj->bound_callback = bound_callback;
 	obj->destroy_callback = destroy_callback;
@@ -545,8 +557,7 @@ void obs_pw_audio_proxy_list_init(struct obs_pw_audio_proxy_list *list,
 
 void obs_pw_audio_proxy_list_append(struct obs_pw_audio_proxy_list *list, struct pw_proxy *proxy)
 {
-	struct obs_pw_audio_proxied_object *obj = bmalloc(sizeof(struct obs_pw_audio_proxied_object));
-	obs_pw_audio_proxied_object_init(obj, proxy, &list->list, list->bound_callback, list->destroy_callback);
+	obs_pw_audio_proxied_object_new(proxy, &list->list, list->bound_callback, list->destroy_callback);
 }
 
 void obs_pw_audio_proxy_list_clear(struct obs_pw_audio_proxy_list *list)
