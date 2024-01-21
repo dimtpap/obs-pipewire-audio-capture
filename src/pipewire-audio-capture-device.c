@@ -28,6 +28,7 @@ struct target_node {
 	const char *friendly_name;
 	const char *name;
 	uint32_t serial;
+	uint32_t id;
 	uint32_t channels;
 
 	struct spa_hook node_listener;
@@ -78,7 +79,7 @@ static void start_streaming(struct obs_pw_audio_capture_device *pwac, struct tar
 		return;
 	}
 
-	if (obs_pw_audio_stream_connect(&pwac->pw.audio, node->serial, node->channels) == 0) {
+	if (obs_pw_audio_stream_connect(&pwac->pw.audio, node->id, node->serial, node->channels) == 0) {
 		pwac->connected_serial = node->serial;
 		blog(LOG_INFO, "[pipewire] %p streaming from %u", pwac->pw.audio.stream, node->serial);
 	} else {
@@ -186,6 +187,7 @@ static void register_target_node(struct obs_pw_audio_capture_device *pwac, const
 	struct target_node *n = pw_proxy_get_user_data(node_proxy);
 	n->friendly_name = bstrdup(friendly_name);
 	n->name = bstrdup(name);
+	n->id = global_id;
 	n->serial = object_serial;
 	n->channels = 0;
 	n->pwac = pwac;
