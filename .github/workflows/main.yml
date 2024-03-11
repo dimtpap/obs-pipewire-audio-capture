@@ -5,6 +5,8 @@ on:
     paths:
       - .github/workflows/main.yml
       - 'src/**'
+      - 'cmake/**'
+      - 'CMakeLists.txt'
     tags:
       - '*'
     branches:
