@@ -185,12 +185,13 @@ static void on_process_cb(void *data)
 
 	struct spa_buffer *buf = b->buffer;
 
-	if (!s->info.sample_rate || buf->datas[0].type != SPA_DATA_MemPtr) {
+	if (!s->info.sample_rate || buf->n_datas == 0 || buf->datas[0].chunk->stride == 0 ||
+		buf->datas[0].type != SPA_DATA_MemPtr) {
 		goto queue;
 	}
 
 	struct obs_source_audio out = {
-		.frames = s->pos->clock.duration,
+		.frames = buf->datas[0].chunk->size / buf->datas[0].chunk->stride,
 		.speakers = s->info.speakers,
 		.format = s->info.format,
 		.samples_per_sec = s->info.sample_rate,
