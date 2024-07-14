@@ -88,7 +88,7 @@ runs:
         run: |
           mkdir -p linux-pipewire-audio/bin/64bit linux-pipewire-audio/data/locale
           cp ./plugin/build/linux-pipewire-audio.so ./linux-pipewire-audio/bin/64bit/linux-pipewire-audio.so
-          cp ./plugin/data/locale/en-US.ini ./linux-pipewire-audio/data/locale/en-US.ini
+          cp -R ./plugin/data/ ./linux-pipewire-audio/data/
           tar -zcvf $PLUGIN_OUTPUT_PATH linux-pipewire-audio
         env:
           PLUGIN_OUTPUT_PATH: ${{ github.workspace }}/${{ inputs.plugin-output-path }}
