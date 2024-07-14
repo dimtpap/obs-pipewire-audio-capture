@@ -1,0 +1,94 @@
+name: 'Build'
+description: 'Builds OBS and the plugin'
+inputs:
+  obs-version:
+    description: 'OBS Studio version'
+    required: true
+  additional-deps:
+    description: 'Extra system dependencies to install'
+    required: false
+    default: ''
+  additional-obs-cmake-flags:
+    description: 'Extra flags to pass to CMake when building OBS'
+    required: false
+    default: ''
+  plugin-output-path:
+    description: 'Path where the archive containing the built plugin will be saved'
+    required: true
+outputs:
+  random-number:
+    description: "Random number"
+    value: ${{ steps.random-number-generator.outputs.random-number }}
+    
+runs:
+  using: "composite"
+  steps:
+      - name: Restore OBS from cache
+        uses: actions/cache@v4
+        id: cache-obs
+        with:
+          path: for-${{ inputs.obs-version }}/obs/
+          key: ${{ inputs.obs-version }}
+      - name: Checkout OBS
+        if: steps.cache-obs.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: 'obsproject/obs-studio'
+          path: 'for-${{ inputs.obs-version }}/obs-src'
+          ref: ${{ inputs.obs-version }}
+          submodules: 'recursive'
+      - name: 'Install system dependencies'
+        shell: bash
+        run: |
+          sudo apt update
+          sudo apt install cmake ninja-build pkg-config clang clang-format build-essential curl ccache git zsh\
+                           libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libswresample-dev libswscale-dev\
+                           libcurl4-openssl-dev\
+                           libxcb1-dev libx11-xcb-dev\
+                           libgl1-mesa-dev\
+                           libglvnd-dev\
+                           libgles2-mesa\
+                           libgles2-mesa-dev\
+                           libpipewire-0.3-dev\
+                           $ADDITIONAL_DEPS
+        env:
+          ADDITIONAL_DEPS: ${{ inputs.additional-deps }}
+      - name: 'Configure OBS'
+        if: steps.cache-obs.outputs.cache-hit != 'true'
+        shell: bash
+        working-directory: for-${{ inputs.obs-version }}
+        run: cmake -B obs-src/build -S obs-src $ADDITIONAL_OBS_CMAKE_FLAGS -DENABLE_BROWSER=OFF -DENABLE_UI=OFF -DENABLE_SCRIPTING=OFF -DENABLE_PULSEAUDIO=OFF -DENABLE_WAYLAND=OFF -DENABLE_PLUGINS=OFF
+        env:
+          ADDITIONAL_OBS_CMAKE_FLAGS: ${{ inputs.additional-obs-cmake-flags }}
+      - name: 'Build OBS'
+        if: steps.cache-obs.outputs.cache-hit != 'true'
+        shell: bash
+        working-directory: for-${{ inputs.obs-version }}
+        run: cmake --build obs-src/build -j4
+      - name: 'Install OBS'
+        if: steps.cache-obs.outputs.cache-hit != 'true'
+        shell: bash
+        working-directory: for-${{ inputs.obs-version }}
+        run: cmake --install obs-src/build --prefix obs
+      - name: 'Checkout'
+        uses: actions/checkout@v4
+        with:
+          path: 'for-${{ inputs.obs-version }}/plugin'
+      - name: 'Configure'
+        shell: bash
+        working-directory: for-${{ inputs.obs-version }}
+        run: cmake -B plugin/build -S plugin -DCMAKE_BUILD_TYPE=RelWithDebInfo -Dlibobs_DIR="$PWD/obs/lib/cmake/libobs/"
+      - name: 'Build'
+        shell: bash
+        working-directory: for-${{ inputs.obs-version }}
+        run: cmake --build plugin/build -j4
+      - name: 'Package'
+        shell: bash
+        working-directory: for-${{ inputs.obs-version }}
+        run: |
+          mkdir -p linux-pipewire-audio/bin/64bit linux-pipewire-audio/data/locale
+          cp ./plugin/build/linux-pipewire-audio.so ./linux-pipewire-audio/bin/64bit/linux-pipewire-audio.so
+          cp ./plugin/data/locale/en-US.ini ./linux-pipewire-audio/data/locale/en-US.ini
+          tar -zcvf $PLUGIN_OUTPUT_PATH linux-pipewire-audio
+        env:
+          PLUGIN_OUTPUT_PATH: ${{ github.workspace }}/${{ inputs.plugin-output-path }}
