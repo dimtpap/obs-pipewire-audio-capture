@@ -21,8 +21,16 @@ See the [PipeWire wiki](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis
 Get the `linux-pipewire-audio-(version).tar.gz` archive from the [latest release](https://github.com/dimtpap/obs-pipewire-audio-capture/releases/latest)  
 If OBS Studio is installed as a
 - Regular package: Extract the archive in `~/.config/obs-studio/plugins/`
-- Flatpak: Extract the archive in `~/.var/app/com.obsproject.Studio/config/obs-studio/plugins/`  
-  - Note: If the plugin isn't working try running OBS using `flatpak run --filesystem=xdg-run/pipewire-0 com.obsproject.Studio`
+- Flatpak:
+> [!IMPORTANT]
+> ***THIS INSTALLATION METHOD IS UNSUPPORTED BY THE OBS STUDIO TEAM AND CAN BREAK AT ANY TIME***  
+> This plugin relies on a Flatpak permission that OBS Studio could remove at any time, so it can't be on Flathub.  
+> If after updating OBS Studio the plugin stops working, check the latest release for a new version, or build the plugin yourself
+> against the latest OBS Studio.
+> 
+> Note that native OBS Studio packages do not have this problem.
+  - Extract the archive in `~/.var/app/com.obsproject.Studio/config/obs-studio/plugins/`  
+    - Note: If the plugin isn't working try running OBS using `flatpak run --filesystem=xdg-run/pipewire-0 com.obsproject.Studio`
   or run `flatpak override --filesystem=xdg-run/pipewire-0 com.obsproject.Studio` and then open OBS as usual
 
 ### Building and installing
