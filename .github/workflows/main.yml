@@ -13,32 +13,67 @@ on:
       - '**'
 
 jobs:
-  build-plugin-versions:
-    name: 'Build Plugin Versions'
+  build-plugin:
+    strategy:
+      matrix:
+        obs-version: ['28.0.0', '30.2.0']
+    name: 'Build Plugin'
     runs-on: ubuntu-latest
-
     steps:
+      - name: Restore OBS from cache
+        uses: actions/cache@v4
+        id: cache-obs
+        with:
+          path: ${{ github.workspace }}/obs/
+          key: ${{ matrix.obs-version }}
+      - name: Checkout OBS
+        if: steps.cache-obs.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: 'obsproject/obs-studio'
+          path: 'obs-src'
+          ref: ${{ matrix.obs-version }}
+          submodules: 'recursive'
+      - name: 'Install system dependencies'
+        run: |
+          sudo apt update
+          sudo apt install cmake ninja-build pkg-config clang clang-format build-essential curl ccache git zsh\
+                           libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libswresample-dev libswscale-dev\
+                           libcurl4-openssl-dev\
+                           libxcb1-dev libx11-xcb-dev\
+                           libgl1-mesa-dev\
+                           libglvnd-dev\
+                           libgles2-mesa\
+                           libgles2-mesa-dev\
+                           libpipewire-0.3-dev\
+                           uthash-dev libjansson-dev
+      - name: 'Configure OBS'
+        if: steps.cache-obs.outputs.cache-hit != 'true'
+        run: cmake -B obs-src/build -S obs-src -DOBS_CMAKE_VERSION=3 -DENABLE_BROWSER=OFF -DENABLE_UI=OFF -DENABLE_SCRIPTING=OFF -DENABLE_PULSEAUDIO=OFF -DENABLE_WAYLAND=OFF -DENABLE_PLUGINS=OFF
+      - name: 'Build OBS'
+        if: steps.cache-obs.outputs.cache-hit != 'true'
+        run: cmake --build obs-src/build -j4
+      - name: 'Install OBS'
+        if: steps.cache-obs.outputs.cache-hit != 'true'
+        run: cmake --install obs-src/build --prefix obs
       - name: 'Checkout'
         uses: actions/checkout@v4
-      - name: Build for OBS >= 28
-        uses: ./.github/actions/build
         with:
-          obs-version: '28.0.0'
-          plugin-output-path: 'linux-pipewire-audio-obs28.tar.gz'
+          path: 'plugin'
+      - name: 'Configure'
+        run: cmake -B ./plugin/build -S ./plugin -DCMAKE_BUILD_TYPE=RelWithDebInfo -Dlibobs_DIR="$GITHUB_WORKSPACE/obs/lib/cmake/libobs/"
+      - name: 'Build'
+        run: cmake --build ./plugin/build -j4
+      - name: 'Package'
+        run: |
+          mkdir -p ./linux-pipewire-audio/bin/64bit
+          cp ./plugin/build/linux-pipewire-audio.so ./linux-pipewire-audio/bin/64bit/linux-pipewire-audio.so
+          cp -r ./plugin/data/ ./linux-pipewire-audio/data/
+          tar -zcvf linux-pipewire-audio-$OBS_VERSION.tar.gz linux-pipewire-audio
+        env:
+          OBS_VERSION: ${{ matrix.obs-version }}
       - name: 'Upload'
         uses: actions/upload-artifact@v4
         with:
-          name: linux-pipewire-audio-obs28
-          path: linux-pipewire-audio-obs28.tar.gz
-      - name: Build for OBS >= 30.2
-        uses: ./.github/actions/build
-        with:
-          obs-version: '30.2.0'
-          additional-deps: 'uthash-dev libjansson-dev'
-          additional-obs-cmake-flags: '-DOBS_CMAKE_VERSION=3'
-          plugin-output-path: 'linux-pipewire-audio-obs30-2.tar.gz'
-      - name: 'Upload'
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-pipewire-audio-obs30-2
-          path: linux-pipewire-audio-obs30-2.tar.gz
+          path: linux-pipewire-audio-${{ matrix.obs-version }}.tar.gz
+          name: linux-pipewire-audio-${{ matrix.obs-version }}
