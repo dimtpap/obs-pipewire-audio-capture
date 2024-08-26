@@ -33,6 +33,7 @@ set(linux-pipewire-audio_LIBRARIES
 )
 
 target_link_libraries(linux-pipewire-audio ${linux-pipewire-audio_LIBRARIES})
+target_compile_options(linux-pipewire-audio PRIVATE -Wall -Wextra -Wpedantic)
 
 include_directories(SYSTEM
 	${linux-pipewire-audio_INCLUDES}
