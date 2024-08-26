@@ -993,7 +993,7 @@ static void clear_selections(struct obs_pw_audio_capture_app *pwac)
 		bfree((void *)selection);
 	}
 
-	da_clear(pwac->selections);
+	pwac->selections.num = 0;
 }
 
 static void *pipewire_audio_capture_app_create(obs_data_t *settings, obs_source_t *source)
