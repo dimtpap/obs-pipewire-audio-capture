@@ -37,8 +37,8 @@ struct target_node {
 };
 
 enum capture_type {
-	INPUT,
-	OUTPUT,
+	CAPTURE_TYPE_INPUT,
+	CAPTURE_TYPE_OUTPUT,
 };
 
 struct obs_pw_audio_capture_device {
@@ -239,9 +239,9 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions, const ch
 		}
 
 		/* Target device */
-		if ((pwac->capture_type == INPUT &&
+		if ((pwac->capture_type == CAPTURE_TYPE_INPUT &&
 			 (strcmp(media_class, "Audio/Source") == 0 || strcmp(media_class, "Audio/Source/Virtual") == 0)) ||
-			(pwac->capture_type == OUTPUT &&
+			(pwac->capture_type == CAPTURE_TYPE_OUTPUT &&
 			 (strcmp(media_class, "Audio/Sink") == 0 || strcmp(media_class, "Audio/Duplex") == 0))) {
 
 			const char *ser = spa_dict_lookup(props, PW_KEY_OBJECT_SERIAL);
@@ -268,7 +268,8 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions, const ch
 		}
 
 		if (!obs_pw_audio_default_node_metadata_listen(&pwac->default_info.metadata, &pwac->pw, id,
-													   pwac->capture_type == OUTPUT, default_node_cb, pwac)) {
+													   pwac->capture_type == CAPTURE_TYPE_OUTPUT, default_node_cb,
+													   pwac)) {
 			blog(LOG_WARNING, "[pipewire] Failed to get default metadata, cannot detect default audio devices");
 		}
 	}
@@ -285,7 +286,8 @@ static void *pipewire_audio_capture_create(obs_data_t *settings, obs_source_t *s
 {
 	struct obs_pw_audio_capture_device *pwac = bzalloc(sizeof(struct obs_pw_audio_capture_device));
 
-	if (!obs_pw_audio_instance_init(&pwac->pw, &registry_events, pwac, capture_type == OUTPUT, true, source)) {
+	if (!obs_pw_audio_instance_init(&pwac->pw, &registry_events, pwac, capture_type == CAPTURE_TYPE_OUTPUT, true,
+									source)) {
 		obs_pw_audio_instance_destroy(&pwac->pw);
 
 		bfree(pwac);
@@ -319,12 +321,12 @@ static void *pipewire_audio_capture_create(obs_data_t *settings, obs_source_t *s
 
 static void *pipewire_audio_capture_input_create(obs_data_t *settings, obs_source_t *source)
 {
-	return pipewire_audio_capture_create(settings, source, INPUT);
+	return pipewire_audio_capture_create(settings, source, CAPTURE_TYPE_INPUT);
 }
 
 static void *pipewire_audio_capture_output_create(obs_data_t *settings, obs_source_t *source)
 {
-	return pipewire_audio_capture_create(settings, source, OUTPUT);
+	return pipewire_audio_capture_create(settings, source, CAPTURE_TYPE_OUTPUT);
 }
 
 static void pipewire_audio_capture_defaults(obs_data_t *settings)
