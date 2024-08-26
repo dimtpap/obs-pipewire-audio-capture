@@ -41,6 +41,9 @@ enum capture_type {
 	CAPTURE_TYPE_OUTPUT,
 };
 
+#define SETTING_TARGET_SERIAL "TargetId"
+#define SETTING_TARGET_NAME "TargetName"
+
 struct obs_pw_audio_capture_device {
 	obs_source_t *source;
 
@@ -301,16 +304,16 @@ static void *pipewire_audio_capture_create(obs_data_t *settings, obs_source_t *s
 
 	obs_pw_audio_proxy_list_init(&pwac->targets, NULL, node_destroy_cb);
 
-	if (obs_data_get_int(settings, "TargetId") != PW_ID_ANY) {
+	if (obs_data_get_int(settings, SETTING_TARGET_SERIAL) != PW_ID_ANY) {
 		/** Reset id setting, PipeWire node ids may not persist between sessions.
 		  * Connecting to saved target will happen based on the TargetName setting
 		  * once target has connected */
-		obs_data_set_int(settings, "TargetId", 0);
+		obs_data_set_int(settings, SETTING_TARGET_SERIAL, 0);
 	} else {
 		pwac->default_info.autoconnect = true;
 	}
 
-	dstr_init_copy(&pwac->target_name, obs_data_get_string(settings, "TargetName"));
+	dstr_init_copy(&pwac->target_name, obs_data_get_string(settings, SETTING_TARGET_NAME));
 
 	obs_pw_audio_instance_sync(&pwac->pw);
 	pw_thread_loop_wait(pwac->pw.thread_loop);
@@ -331,7 +334,7 @@ static void *pipewire_audio_capture_output_create(obs_data_t *settings, obs_sour
 
 static void pipewire_audio_capture_defaults(obs_data_t *settings)
 {
-	obs_data_set_default_int(settings, "TargetId", PW_ID_ANY);
+	obs_data_set_default_int(settings, SETTING_TARGET_SERIAL, PW_ID_ANY);
 }
 
 static obs_properties_t *pipewire_audio_capture_properties(void *data)
@@ -340,8 +343,8 @@ static obs_properties_t *pipewire_audio_capture_properties(void *data)
 
 	obs_properties_t *p = obs_properties_create();
 
-	obs_property_t *targets_list =
-		obs_properties_add_list(p, "TargetId", obs_module_text("Device"), OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
+	obs_property_t *targets_list = obs_properties_add_list(p, SETTING_TARGET_SERIAL, obs_module_text("Device"),
+														   OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
 
 	obs_property_list_add_int(targets_list, obs_module_text("Default"), PW_ID_ANY);
 
@@ -349,7 +352,7 @@ static obs_properties_t *pipewire_audio_capture_properties(void *data)
 		obs_data_t *settings = obs_source_get_settings(pwac->source);
 		/* Saved target serial may be different from connected because a previously connected
 		   node may have been replaced by one with the same name */
-		obs_data_set_int(settings, "TargetId", pwac->connected_serial);
+		obs_data_set_int(settings, SETTING_TARGET_SERIAL, pwac->connected_serial);
 		obs_data_release(settings);
 	}
 
@@ -372,7 +375,7 @@ static void pipewire_audio_capture_update(void *data, obs_data_t *settings)
 {
 	struct obs_pw_audio_capture_device *pwac = data;
 
-	uint32_t new_node_serial = obs_data_get_int(settings, "TargetId");
+	uint32_t new_node_serial = obs_data_get_int(settings, SETTING_TARGET_SERIAL);
 
 	pw_thread_loop_lock(pwac->pw.thread_loop);
 
@@ -385,7 +388,7 @@ static void pipewire_audio_capture_update(void *data, obs_data_t *settings)
 		if (new_node) {
 			start_streaming(pwac, new_node);
 
-			obs_data_set_string(settings, "TargetName", pwac->target_name.array);
+			obs_data_set_string(settings, SETTING_TARGET_NAME, pwac->target_name.array);
 		}
 	}
 

@@ -66,6 +66,14 @@ struct capture_sink_port {
 enum capture_mode { CAPTURE_MODE_SINGLE, CAPTURE_MODE_MULTIPLE };
 enum match_priority { MATCH_PRIORITY_BINARY_NAME, MATCH_PRIORITY_APP_NAME };
 
+#define SETTING_CAPTURE_MODE "CaptureMode"
+#define SETTING_MATCH_PRIORITY "MatchPriorty"
+#define SETTING_EXCLUDE_SELECTIONS "ExceptApp"
+#define SETTING_SELECTION_SINGLE "TargetName"
+#define SETTING_SELECTION_MULTIPLE "apps"
+#define SETTING_AVAILABLE_APPS "AppToAdd"
+#define SETTING_ADD_TO_SELECTIONS "AddToSelected"
+
 /** This source basically works like this:
     - Keep track of output streams and their ports, system sinks and the default sink
 
@@ -777,9 +785,9 @@ static bool add_app_clicked(obs_properties_t *properties, obs_property_t *proper
 	obs_source_t *source = data;
 
 	obs_data_t *settings = obs_source_get_settings(source);
-	const char *app_to_add = obs_data_get_string(settings, "AppToAdd");
+	const char *app_to_add = obs_data_get_string(settings, SETTING_AVAILABLE_APPS);
 
-	obs_data_array_t *selections = obs_data_get_array(settings, "apps");
+	obs_data_array_t *selections = obs_data_get_array(settings, SETTING_SELECTION_MULTIPLE);
 
 	/* Don't add if selection is already in the list */
 
@@ -885,34 +893,36 @@ static bool capture_mode_modified(void *data, obs_properties_t *properties, obs_
 
 	struct obs_pw_audio_capture_app *pwac = data;
 
-	enum capture_mode mode = obs_data_get_int(settings, "CaptureMode");
+	enum capture_mode mode = obs_data_get_int(settings, SETTING_CAPTURE_MODE);
 
 	switch (mode) {
 	case CAPTURE_MODE_SINGLE: {
-		obs_properties_remove_by_name(properties, "apps");
-		obs_properties_remove_by_name(properties, "AppToAdd");
-		obs_properties_remove_by_name(properties, "AddToSelected");
+		obs_properties_remove_by_name(properties, SETTING_SELECTION_MULTIPLE);
+		obs_properties_remove_by_name(properties, SETTING_AVAILABLE_APPS);
+		obs_properties_remove_by_name(properties, SETTING_ADD_TO_SELECTIONS);
 
-		obs_property_t *available_apps = obs_properties_add_list(
-			properties, "TargetName", obs_module_text("Application"), OBS_COMBO_TYPE_EDITABLE, OBS_COMBO_FORMAT_STRING);
+		obs_property_t *available_apps = obs_properties_add_list(properties, SETTING_SELECTION_SINGLE,
+																 obs_module_text("Application"),
+																 OBS_COMBO_TYPE_EDITABLE, OBS_COMBO_FORMAT_STRING);
 
 		populate_avaiable_apps_list(available_apps, pwac);
 
 		break;
 	}
 	case CAPTURE_MODE_MULTIPLE: {
-		obs_properties_remove_by_name(properties, "TargetName");
+		obs_properties_remove_by_name(properties, SETTING_SELECTION_SINGLE);
 
-		obs_properties_add_editable_list(properties, "apps", obs_module_text("SelectedApps"),
+		obs_properties_add_editable_list(properties, SETTING_SELECTION_MULTIPLE, obs_module_text("SelectedApps"),
 										 OBS_EDITABLE_LIST_TYPE_STRINGS, NULL, NULL);
 
-		obs_property_t *available_apps = obs_properties_add_list(
-			properties, "AppToAdd", obs_module_text("Applications"), OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
+		obs_property_t *available_apps = obs_properties_add_list(properties, SETTING_AVAILABLE_APPS,
+																 obs_module_text("Applications"), OBS_COMBO_TYPE_LIST,
+																 OBS_COMBO_FORMAT_STRING);
 
 		populate_avaiable_apps_list(available_apps, pwac);
 
-		obs_properties_add_button2(properties, "AddToSelected", obs_module_text("AddToSelected"), add_app_clicked,
-								   pwac->source);
+		obs_properties_add_button2(properties, SETTING_ADD_TO_SELECTIONS, obs_module_text("AddToSelected"),
+								   add_app_clicked, pwac->source);
 
 		break;
 	}
@@ -928,16 +938,16 @@ static bool match_priority_modified(void *data, obs_properties_t *properties, ob
 
 	struct obs_pw_audio_capture_app *pwac = data;
 
-	enum capture_mode mode = obs_data_get_int(settings, "CaptureMode");
+	enum capture_mode mode = obs_data_get_int(settings, SETTING_CAPTURE_MODE);
 
 	obs_property_t *targets = NULL;
 	switch (mode) {
 	default:
 	case CAPTURE_MODE_SINGLE:
-		targets = obs_properties_get(properties, "TargetName");
+		targets = obs_properties_get(properties, SETTING_SELECTION_SINGLE);
 		break;
 	case CAPTURE_MODE_MULTIPLE:
-		targets = obs_properties_get(properties, "AppToAdd");
+		targets = obs_properties_get(properties, SETTING_AVAILABLE_APPS);
 		break;
 	}
 
@@ -956,12 +966,12 @@ static void build_selections(struct obs_pw_audio_capture_app *pwac, obs_data_t *
 {
 	switch (pwac->capture_mode) {
 	case CAPTURE_MODE_SINGLE: {
-		const char *selection = bstrdup(obs_data_get_string(settings, "TargetName"));
+		const char *selection = bstrdup(obs_data_get_string(settings, SETTING_SELECTION_SINGLE));
 		da_push_back(pwac->selections, &selection);
 		break;
 	}
 	case CAPTURE_MODE_MULTIPLE: {
-		obs_data_array_t *selections = obs_data_get_array(settings, "apps");
+		obs_data_array_t *selections = obs_data_get_array(settings, SETTING_SELECTION_MULTIPLE);
 		for (size_t i = 0; i < obs_data_array_count(selections); i++) {
 			obs_data_t *item = obs_data_array_item(selections, i);
 
@@ -1007,9 +1017,9 @@ static void *pipewire_audio_capture_app_create(obs_data_t *settings, obs_source_
 	pwac->sink.id = SPA_ID_INVALID;
 	dstr_init(&pwac->sink.position);
 
-	pwac->capture_mode = obs_data_get_int(settings, "CaptureMode");
-	pwac->match_priority = obs_data_get_int(settings, "MatchPriority");
-	pwac->except = obs_data_get_bool(settings, "ExceptApp");
+	pwac->capture_mode = obs_data_get_int(settings, SETTING_CAPTURE_MODE);
+	pwac->match_priority = obs_data_get_int(settings, SETTING_MATCH_PRIORITY);
+	pwac->except = obs_data_get_bool(settings, SETTING_EXCLUDE_SELECTIONS);
 
 	da_init(pwac->selections);
 	build_selections(pwac, settings);
@@ -1023,12 +1033,12 @@ static void *pipewire_audio_capture_app_create(obs_data_t *settings, obs_source_
 
 static void pipewire_audio_capture_app_defaults(obs_data_t *settings)
 {
-	obs_data_set_default_int(settings, "CaptureMode", CAPTURE_MODE_SINGLE);
-	obs_data_set_default_int(settings, "MatchPriority", MATCH_PRIORITY_BINARY_NAME);
-	obs_data_set_default_bool(settings, "ExceptApp", false);
+	obs_data_set_default_int(settings, SETTING_CAPTURE_MODE, CAPTURE_MODE_SINGLE);
+	obs_data_set_default_int(settings, SETTING_MATCH_PRIORITY, MATCH_PRIORITY_BINARY_NAME);
+	obs_data_set_default_bool(settings, SETTING_EXCLUDE_SELECTIONS, false);
 
 	obs_data_array_t *arr = obs_data_array_create();
-	obs_data_set_default_array(settings, "apps", arr);
+	obs_data_set_default_array(settings, SETTING_SELECTION_MULTIPLE, arr);
 	obs_data_array_release(arr);
 }
 
@@ -1038,19 +1048,19 @@ static obs_properties_t *pipewire_audio_capture_app_properties(void *data)
 
 	obs_properties_t *p = obs_properties_create();
 
-	obs_property_t *capture_mode = obs_properties_add_list(p, "CaptureMode", obs_module_text("AppCaptureMode"),
+	obs_property_t *capture_mode = obs_properties_add_list(p, SETTING_CAPTURE_MODE, obs_module_text("AppCaptureMode"),
 														   OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
 	obs_property_list_add_int(capture_mode, obs_module_text("SingleApp"), CAPTURE_MODE_SINGLE);
 	obs_property_list_add_int(capture_mode, obs_module_text("MultipleApps"), CAPTURE_MODE_MULTIPLE);
 	obs_property_set_modified_callback2(capture_mode, capture_mode_modified, pwac);
 
-	obs_property_t *match_priority = obs_properties_add_list(p, "MatchPriority", obs_module_text("MatchPriority"),
-															 OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
+	obs_property_t *match_priority = obs_properties_add_list(
+		p, SETTING_MATCH_PRIORITY, obs_module_text("MatchPriority"), OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
 	obs_property_list_add_int(match_priority, obs_module_text("MatchBinaryFirst"), MATCH_PRIORITY_BINARY_NAME);
 	obs_property_list_add_int(match_priority, obs_module_text("MatchAppNameFirst"), MATCH_PRIORITY_APP_NAME);
 	obs_property_set_modified_callback2(match_priority, match_priority_modified, pwac);
 
-	obs_properties_add_bool(p, "ExceptApp", obs_module_text("ExceptApp"));
+	obs_properties_add_bool(p, SETTING_EXCLUDE_SELECTIONS, obs_module_text("ExceptApp"));
 
 	return p;
 }
@@ -1061,9 +1071,9 @@ static void pipewire_audio_capture_app_update(void *data, obs_data_t *settings)
 
 	pw_thread_loop_lock(pwac->pw.thread_loop);
 
-	pwac->capture_mode = obs_data_get_int(settings, "CaptureMode");
-	pwac->match_priority = obs_data_get_int(settings, "MatchPriority");
-	pwac->except = obs_data_get_bool(settings, "ExceptApp");
+	pwac->capture_mode = obs_data_get_int(settings, SETTING_CAPTURE_MODE);
+	pwac->match_priority = obs_data_get_int(settings, SETTING_MATCH_PRIORITY);
+	pwac->except = obs_data_get_bool(settings, SETTING_EXCLUDE_SELECTIONS);
 
 	clear_selections(pwac);
 	build_selections(pwac, settings);
