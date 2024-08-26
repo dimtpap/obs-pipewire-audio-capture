@@ -36,7 +36,7 @@ struct target_node {
 	uint32_t client_id;
 	uint32_t id;
 	struct obs_pw_audio_proxy_list ports;
-	uint32_t *p_n_targets;
+	uint32_t *p_n_nodes;
 
 	struct spa_hook node_listener;
 };
@@ -115,8 +115,8 @@ struct obs_pw_audio_capture_app {
 
 	struct obs_pw_audio_proxy_list clients;
 
-	struct obs_pw_audio_proxy_list targets;
-	uint32_t n_targets;
+	struct obs_pw_audio_proxy_list nodes;
+	uint32_t n_nodes;
 
 	enum capture_mode capture_mode;
 	enum match_priority match_priority;
@@ -210,7 +210,7 @@ static void node_destroy_cb(void *data)
 
 	obs_pw_audio_proxy_list_clear(&node->ports);
 
-	(*node->p_n_targets)--;
+	(*node->p_n_nodes)--;
 
 	bfree((void *)node->binary);
 	bfree((void *)node->app_name);
@@ -271,12 +271,12 @@ static void register_target_node(struct obs_pw_audio_capture_app *pwac, uint32_t
 	node->binary = NULL;
 	node->id = global_id;
 	node->client_id = client_id;
-	node->p_n_targets = &pwac->n_targets;
+	node->p_n_nodes = &pwac->n_nodes;
 	obs_pw_audio_proxy_list_init(&node->ports, NULL, port_destroy_cb);
 
-	pwac->n_targets++;
+	pwac->n_nodes++;
 
-	obs_pw_audio_proxy_list_append(&pwac->targets, node_proxy);
+	obs_pw_audio_proxy_list_append(&pwac->nodes, node_proxy);
 	pw_proxy_add_object_listener(node_proxy, &node->node_listener, &node_events, node);
 }
 
@@ -467,7 +467,7 @@ static void connect_targets(struct obs_pw_audio_capture_app *pwac)
 	}
 
 	struct obs_pw_audio_proxy_list_iter iter;
-	obs_pw_audio_proxy_list_iter_init(&iter, &pwac->targets);
+	obs_pw_audio_proxy_list_iter_init(&iter, &pwac->nodes);
 
 	struct target_node *node;
 	while (obs_pw_audio_proxy_list_iter_next(&iter, (void **)&node)) {
@@ -708,7 +708,7 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions, const ch
 		} else if (astrcmpi(dir, "out") == 0) {
 			/* Possibly a target port */
 			struct obs_pw_audio_proxy_list_iter iter;
-			obs_pw_audio_proxy_list_iter_init(&iter, &pwac->targets);
+			obs_pw_audio_proxy_list_iter_init(&iter, &pwac->nodes);
 
 			struct target_node *temp, *node = NULL;
 			while (obs_pw_audio_proxy_list_iter_next(&iter, (void **)&temp)) {
@@ -844,10 +844,10 @@ static void populate_avaiable_apps_list(obs_property_t *list, struct obs_pw_audi
 
 	pw_thread_loop_lock(pwac->pw.thread_loop);
 
-	da_reserve(targets, pwac->n_targets);
+	da_reserve(targets, pwac->n_nodes);
 
 	struct obs_pw_audio_proxy_list_iter iter;
-	obs_pw_audio_proxy_list_iter_init(&iter, &pwac->targets);
+	obs_pw_audio_proxy_list_iter_init(&iter, &pwac->nodes);
 
 	struct target_node *node;
 	while (obs_pw_audio_proxy_list_iter_next(&iter, (void **)&node)) {
@@ -1009,7 +1009,7 @@ static void *pipewire_audio_capture_app_create(obs_data_t *settings, obs_source_
 
 	pwac->source = source;
 
-	obs_pw_audio_proxy_list_init(&pwac->targets, NULL, node_destroy_cb);
+	obs_pw_audio_proxy_list_init(&pwac->nodes, NULL, node_destroy_cb);
 	obs_pw_audio_proxy_list_init(&pwac->clients, NULL, client_destroy_cb);
 	obs_pw_audio_proxy_list_init(&pwac->sink.links, link_bound_cb, link_destroy_cb);
 	obs_pw_audio_proxy_list_init(&pwac->system_sinks, NULL, system_sink_destroy_cb);
@@ -1109,7 +1109,7 @@ static void pipewire_audio_capture_app_destroy(void *data)
 
 	pw_thread_loop_lock(pwac->pw.thread_loop);
 
-	obs_pw_audio_proxy_list_clear(&pwac->targets);
+	obs_pw_audio_proxy_list_clear(&pwac->nodes);
 	obs_pw_audio_proxy_list_clear(&pwac->system_sinks);
 
 	obs_pw_audio_proxy_list_clear(&pwac->clients);
