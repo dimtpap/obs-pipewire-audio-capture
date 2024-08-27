@@ -145,12 +145,15 @@ static void on_node_info_cb(void *data, const struct pw_node_info *info)
 
 	struct obs_pw_audio_capture_device *pwac = n->pwac;
 
-	/** If this is the default device and the stream is not already connected to it
-	  * or the stream is unconnected and this node has the desired target name */
-	if ((pwac->default_info.autoconnect && pwac->connected_serial != n->serial &&
-		 !dstr_is_empty(&pwac->default_info.name) && dstr_cmp(&pwac->default_info.name, n->name) == 0) ||
-		(pw_stream_get_state(pwac->pw.audio.stream, NULL) == PW_STREAM_STATE_UNCONNECTED &&
-		 !dstr_is_empty(&pwac->target_name) && dstr_cmp(&pwac->target_name, n->name) == 0)) {
+	bool not_streamed = pwac->connected_serial != n->serial;
+	bool has_default_node_name = !dstr_is_empty(&pwac->default_info.name) &&
+								 dstr_cmp(&pwac->default_info.name, n->name) == 0;
+	bool is_new_default_node = not_streamed && has_default_node_name;
+
+	bool stream_is_unconnected = pw_stream_get_state(pwac->pw.audio.stream, NULL) == PW_STREAM_STATE_UNCONNECTED;
+	bool node_has_target_name = !dstr_is_empty(&pwac->target_name) && dstr_cmp(&pwac->target_name, n->name) == 0;
+
+	if ((pwac->default_info.autoconnect && is_new_default_node) || (stream_is_unconnected && node_has_target_name)) {
 		start_streaming(pwac, n);
 	}
 }
