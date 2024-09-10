@@ -486,10 +486,11 @@ static bool make_capture_sink(struct obs_pw_audio_capture_app *pwac, uint32_t ch
 	 * and because of https://gitlab.freedesktop.org/pipewire/pipewire/-/merge_requests/1564#note_1861698, which works the same for
 	 * deciding what nodes need an audio adapter.
 	 */
-	struct pw_properties *sink_props =
-		pw_properties_new(PW_KEY_NODE_NAME, "OBS", PW_KEY_NODE_DESCRIPTION, "OBS App Audio Capture Sink",
-						  PW_KEY_FACTORY_NAME, "support.null-audio-sink", PW_KEY_MEDIA_CLASS, "Audio/Sink/Internal",
-						  PW_KEY_NODE_VIRTUAL, "true", SPA_KEY_AUDIO_POSITION, position, NULL);
+	struct pw_properties *sink_props = pw_properties_new(PW_KEY_FACTORY_NAME, "support.null-audio-sink",
+														 PW_KEY_MEDIA_CLASS, "Audio/Sink/Internal", PW_KEY_NODE_VIRTUAL,
+														 "true", SPA_KEY_AUDIO_POSITION, position, NULL);
+
+	pw_properties_setf(sink_props, PW_KEY_NODE_NAME, "OBS: %s", obs_source_get_name(pwac->source));
 
 	pw_properties_setf(sink_props, PW_KEY_AUDIO_CHANNELS, "%u", channels);
 
