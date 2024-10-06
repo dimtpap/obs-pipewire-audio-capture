@@ -784,6 +784,12 @@ static bool add_app_clicked(obs_properties_t *properties, obs_property_t *proper
 	const char *app_to_add = obs_data_get_string(settings, SETTING_AVAILABLE_APPS);
 
 	obs_data_array_t *selections = obs_data_get_array(settings, SETTING_SELECTION_MULTIPLE);
+	if (obs_data_array_count(selections) == 0) {
+		obs_data_array_release(selections);
+
+		selections = obs_data_array_create();
+		obs_data_set_array(settings, SETTING_SELECTION_MULTIPLE, selections);
+	}
 
 	/* Don't add if selection is already in the list */
 
