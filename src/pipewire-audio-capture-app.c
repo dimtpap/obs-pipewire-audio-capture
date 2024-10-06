@@ -357,8 +357,6 @@ static void link_port_to_sink(struct obs_pw_audio_capture_app *pwac, struct targ
 														PW_VERSION_LINK, &link_props->dict,
 														sizeof(struct capture_sink_link));
 
-	obs_pw_audio_instance_sync(&pwac->pw);
-
 	pw_properties_free(link_props);
 
 	if (!link_proxy) {
@@ -497,8 +495,6 @@ static bool make_capture_sink(struct obs_pw_audio_capture_app *pwac, uint32_t ch
 	pwac->sink.proxy =
 		pw_core_create_object(pwac->pw.core, "adapter", PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, &sink_props->dict, 0);
 
-	obs_pw_audio_instance_sync(&pwac->pw);
-
 	pw_properties_free(sink_props);
 
 	if (!pwac->sink.proxy) {
@@ -553,7 +549,6 @@ static void destroy_capture_sink(struct obs_pw_audio_capture_app *pwac)
 
 	pwac->sink.autoconnect_targets = false;
 	pw_proxy_destroy(pwac->sink.proxy);
-	obs_pw_audio_instance_sync(&pwac->pw);
 }
 /* ------------------------------------------------- */
 
@@ -1025,8 +1020,6 @@ static void *pipewire_audio_capture_app_create(obs_data_t *settings, obs_source_
 	da_init(pwac->selections);
 	build_selections(pwac, settings);
 
-	obs_pw_audio_instance_sync(&pwac->pw);
-	pw_thread_loop_wait(pwac->pw.thread_loop);
 	pw_thread_loop_unlock(pwac->pw.thread_loop);
 
 	return pwac;
@@ -1081,8 +1074,6 @@ static void pipewire_audio_capture_app_update(void *data, obs_data_t *settings)
 
 	connect_targets(pwac);
 
-	obs_pw_audio_instance_sync(&pwac->pw);
-	pw_thread_loop_wait(pwac->pw.thread_loop);
 	pw_thread_loop_unlock(pwac->pw.thread_loop);
 }
 

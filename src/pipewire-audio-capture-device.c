@@ -318,8 +318,6 @@ static void *pipewire_audio_capture_create(obs_data_t *settings, obs_source_t *s
 
 	dstr_init_copy(&pwac->target_name, obs_data_get_string(settings, SETTING_TARGET_NAME));
 
-	obs_pw_audio_instance_sync(&pwac->pw);
-	pw_thread_loop_wait(pwac->pw.thread_loop);
 	pw_thread_loop_unlock(pwac->pw.thread_loop);
 
 	return pwac;
