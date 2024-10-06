@@ -152,25 +152,6 @@ enum speaker_layout spa_to_obs_speakers(uint32_t channels)
 	}
 }
 
-bool spa_to_obs_pw_audio_info(struct obs_pw_audio_info *info, const struct spa_pod *param)
-{
-	struct spa_audio_info_raw audio_info;
-
-	if (spa_format_audio_raw_parse(param, &audio_info) < 0) {
-		info->sample_rate = 0;
-		info->format = AUDIO_FORMAT_UNKNOWN;
-		info->speakers = SPEAKERS_UNKNOWN;
-
-		return false;
-	}
-
-	info->sample_rate = audio_info.rate;
-	info->speakers = spa_to_obs_speakers(audio_info.channels);
-	info->format = spa_to_obs_audio_format(audio_info.format);
-
-	return true;
-}
-
 static void on_process_cb(void *data)
 {
 	uint64_t now = os_gettime_ns();
@@ -238,12 +219,38 @@ static void on_param_changed_cb(void *data, uint32_t id, const struct spa_pod *p
 
 	struct obs_pw_audio_stream *s = data;
 
-	if (!spa_to_obs_pw_audio_info(&s->info, param)) {
-		blog(LOG_WARNING, "[pipewire-audio] Stream %p failed to parse audio format info", s->stream);
-	} else {
-		blog(LOG_INFO, "[pipewire-audio] %p Got format: rate %u - channels %u - format %u", s->stream,
-		     s->info.sample_rate, s->info.speakers, s->info.format);
+	struct spa_audio_info_raw info;
+
+	if (spa_format_audio_raw_parse(param, &info) < 0) {
+		blog(LOG_WARNING, "[pipewire-audio] Stream %p failed to parse format", s->stream);
+
+		s->info.sample_rate = 0;
+		s->info.format = AUDIO_FORMAT_UNKNOWN;
+		s->info.speakers = SPEAKERS_UNKNOWN;
+
+		return;
 	}
+
+	if (info.channels > 8) {
+		info.channels = 8;
+	}
+
+	obs_channels_to_spa_audio_position(info.position, info.channels);
+
+	uint8_t buffer[2048];
+	struct spa_pod_builder b;
+	const struct spa_pod *params[1];
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info);
+	pw_stream_update_params(s->stream, params, 1);
+
+	s->info.sample_rate = info.rate;
+	s->info.speakers = spa_to_obs_speakers(info.channels);
+	s->info.format = spa_to_obs_audio_format(info.format);
+
+	blog(LOG_INFO, "[pipewire-audio] Stream %p negotiated format: Format: %u, Channels: %u, Rate: %u", s->stream,
+	     info.format, info.channels, info.rate);
 }
 
 static void on_io_changed_cb(void *data, uint32_t id, void *area, uint32_t size)
@@ -265,12 +272,8 @@ static const struct pw_stream_events stream_events = {
 	.io_changed = on_io_changed_cb,
 };
 
-int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, uint32_t target_id, uint32_t target_serial,
-				uint32_t audio_channels)
+int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, uint32_t target_id, uint32_t target_serial)
 {
-	enum spa_audio_channel pos[8];
-	obs_channels_to_spa_audio_position(pos, audio_channels);
-
 	uint8_t buffer[2048];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	const struct spa_pod *params[1];
@@ -278,8 +281,6 @@ int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, uint32_t target_i
 	params[0] = spa_pod_builder_add_object(
 		&b, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat, SPA_FORMAT_mediaType,
 		SPA_POD_Id(SPA_MEDIA_TYPE_audio), SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-		SPA_FORMAT_AUDIO_channels, SPA_POD_Int(audio_channels), SPA_FORMAT_AUDIO_position,
-		SPA_POD_Array(sizeof(enum spa_audio_channel), SPA_TYPE_Id, audio_channels, pos),
 		SPA_FORMAT_AUDIO_format,
 		SPA_POD_CHOICE_ENUM_Id(9, SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_U8, SPA_AUDIO_FORMAT_S16_LE,
 				       SPA_AUDIO_FORMAT_S32_LE, SPA_AUDIO_FORMAT_F32_LE, SPA_AUDIO_FORMAT_U8P,

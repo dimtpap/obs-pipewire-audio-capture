@@ -429,7 +429,7 @@ static void finalize_capture_sink(struct obs_pw_audio_capture_app *pwac)
 
 	pwac->sink.autoconnect_targets = true;
 
-	if (obs_pw_audio_stream_connect(&pwac->pw.audio, pwac->sink.id, pwac->sink.serial, pwac->sink.channels) < 0) {
+	if (obs_pw_audio_stream_connect(&pwac->pw.audio, pwac->sink.id, pwac->sink.serial) < 0) {
 		blog(LOG_WARNING, "[pipewire-audio] Error connecting stream %p to app capture sink %u",
 		     pwac->pw.audio.stream, pwac->sink.id);
 	}

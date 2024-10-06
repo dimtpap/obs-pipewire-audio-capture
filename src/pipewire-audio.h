@@ -55,8 +55,7 @@ struct obs_pw_audio_stream {
  * Connect a stream with the default params
  * @return 0 on success, < 0 on error
  */
-int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, uint32_t target_id, uint32_t target_serial,
-				uint32_t channels);
+int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, uint32_t target_id, uint32_t target_serial);
 /* ------------------------------------------------- */
 
 /**
