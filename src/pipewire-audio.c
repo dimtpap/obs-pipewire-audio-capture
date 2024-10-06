@@ -201,7 +201,7 @@ static void on_process_cb(void *data)
 		out.data[i] = buf->datas[i].data;
 	}
 
-	if (s->info.sample_rate * s->pos->clock.rate_diff) {
+	if (s->info.sample_rate && s->pos->clock.rate_diff) {
 		/** Taken from PipeWire's implementation of JACK's jack_get_cycle_times
 		  * (https://gitlab.freedesktop.org/pipewire/pipewire/-/blob/0.3.52/pipewire-jack/src/pipewire-jack.c#L5639)
 		  * which is used in the linux-jack plugin to correctly set the timestamp

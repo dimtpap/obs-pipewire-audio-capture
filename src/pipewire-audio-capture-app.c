@@ -836,6 +836,8 @@ static const char *choose_display_string(struct obs_pw_audio_capture_app *pwac, 
 		return binary ? binary : app_name;
 	case MATCH_PRIORITY_APP_NAME:
 		return app_name ? app_name : binary;
+	default:
+		return NULL;
 	}
 }
 
