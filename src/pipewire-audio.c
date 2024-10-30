@@ -280,9 +280,9 @@ int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, uint32_t target_i
 		SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw), SPA_FORMAT_AUDIO_channels,
 		SPA_POD_Int(audio_channels), SPA_FORMAT_AUDIO_position,
 		SPA_POD_Array(sizeof(enum spa_audio_channel), SPA_TYPE_Id, audio_channels, pos), SPA_FORMAT_AUDIO_format,
-		SPA_POD_CHOICE_ENUM_Id(8, SPA_AUDIO_FORMAT_U8, SPA_AUDIO_FORMAT_S16_LE, SPA_AUDIO_FORMAT_S32_LE,
-							   SPA_AUDIO_FORMAT_F32_LE, SPA_AUDIO_FORMAT_U8P, SPA_AUDIO_FORMAT_S16P,
-							   SPA_AUDIO_FORMAT_S32P, SPA_AUDIO_FORMAT_F32P));
+		SPA_POD_CHOICE_ENUM_Id(9, SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_U8, SPA_AUDIO_FORMAT_S16_LE,
+							   SPA_AUDIO_FORMAT_S32_LE, SPA_AUDIO_FORMAT_F32_LE, SPA_AUDIO_FORMAT_U8P,
+							   SPA_AUDIO_FORMAT_S16P, SPA_AUDIO_FORMAT_S32P, SPA_AUDIO_FORMAT_F32P));
 
 	struct pw_properties *stream_props = pw_properties_new(NULL, NULL);
 	pw_properties_setf(stream_props, PW_KEY_TARGET_OBJECT, "%u", target_serial);
