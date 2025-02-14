@@ -43,9 +43,9 @@ jobs:
                            libxcb1-dev libx11-xcb-dev\
                            libgl1-mesa-dev\
                            libglvnd-dev\
-                           libgles2-mesa\
                            libgles2-mesa-dev\
                            libpipewire-0.3-dev\
+                           uuid-dev\
                            uthash-dev libjansson-dev
       - name: 'Configure OBS'
         if: steps.cache-obs.outputs.cache-hit != 'true'
