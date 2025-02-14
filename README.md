@@ -1,6 +1,6 @@
 # Audio device and application capture for OBS Studio using PipeWire 
 
-This plugin adds 3 sources for capturing audio outputs, inputs and applications using [PipeWire](https://pipewire.org)
+This plugin adds 3 sources for capturing audio outputs, inputs and applications using [PipeWire](https://pipewire.org)  
 ![Device capture properties](assets/device-capture.png)
 ![App capture properties](assets/app-capture.png)
 
