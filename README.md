@@ -43,7 +43,7 @@ If OBS Studio is installed as a
 
   Extract the archive in `~/.var/app/com.obsproject.Studio/config/obs-studio/plugins/`  
     Note: If the plugin isn't working run `flatpak override --filesystem=xdg-run/pipewire-0 com.obsproject.Studio`
-### Building
+### Building (for development)
 Ensure you have CMake, PipeWire and OBS Studio/libobs development packages, then in the repo's root:
 ```sh
 cmake -B build -DCMAKE_INSTALL_PREFIX="/usr" -DCMAKE_BUILD_TYPE=RelWithDebInfo
