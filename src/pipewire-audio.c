@@ -226,7 +226,7 @@ static void on_state_changed_cb(void *data, enum pw_stream_state old, enum pw_st
 
 	struct obs_pw_audio_stream *s = data;
 
-	blog(LOG_DEBUG, "[pipewire] Stream %p state: \"%s\" (error: %s)", s->stream, pw_stream_state_as_string(state),
+	blog(LOG_DEBUG, "[pipewire-audio] Stream %p state: \"%s\" (error: %s)", s->stream, pw_stream_state_as_string(state),
 		 error ? error : "none");
 }
 
@@ -239,10 +239,10 @@ static void on_param_changed_cb(void *data, uint32_t id, const struct spa_pod *p
 	struct obs_pw_audio_stream *s = data;
 
 	if (!spa_to_obs_pw_audio_info(&s->info, param)) {
-		blog(LOG_WARNING, "[pipewire] Stream %p failed to parse audio format info", s->stream);
+		blog(LOG_WARNING, "[pipewire-audio] Stream %p failed to parse audio format info", s->stream);
 	} else {
-		blog(LOG_INFO, "[pipewire] %p Got format: rate %u - channels %u - format %u", s->stream, s->info.sample_rate,
-			 s->info.speakers, s->info.format);
+		blog(LOG_INFO, "[pipewire-audio] %p Got format: rate %u - channels %u - format %u", s->stream,
+			 s->info.sample_rate, s->info.speakers, s->info.format);
 	}
 }
 
@@ -309,7 +309,7 @@ static void on_core_error_cb(void *data, uint32_t id, int seq, int res, const ch
 {
 	struct obs_pw_audio_instance *pw = data;
 
-	blog(LOG_ERROR, "[pipewire] Error id:%u seq:%d res:%d :%s", id, seq, res, message);
+	blog(LOG_ERROR, "[pipewire-audio] Error id:%u seq:%d res:%d :%s", id, seq, res, message);
 
 	pw_thread_loop_signal(pw->thread_loop, false);
 }
@@ -330,13 +330,13 @@ bool obs_pw_audio_instance_init(struct obs_pw_audio_instance *pw, const struct p
 	pw_thread_loop_lock(pw->thread_loop);
 
 	if (pw_thread_loop_start(pw->thread_loop) < 0) {
-		blog(LOG_WARNING, "[pipewire] Error starting threaded mainloop");
+		blog(LOG_WARNING, "[pipewire-audio] Error starting threaded mainloop");
 		return false;
 	}
 
 	pw->core = pw_context_connect(pw->context, NULL, 0);
 	if (!pw->core) {
-		blog(LOG_WARNING, "[pipewire] Error creating PipeWire core");
+		blog(LOG_WARNING, "[pipewire-audio] Error creating PipeWire core");
 		return false;
 	}
 
@@ -359,10 +359,10 @@ bool obs_pw_audio_instance_init(struct obs_pw_audio_instance *pw, const struct p
 	pw->audio.stream = pw_stream_new(pw->core, obs_source_get_name(stream_output), stream_props);
 
 	if (!pw->audio.stream) {
-		blog(LOG_WARNING, "[pipewire] Failed to create stream");
+		blog(LOG_WARNING, "[pipewire-audio] Failed to create stream");
 		return false;
 	}
-	blog(LOG_INFO, "[pipewire] Created stream %p", pw->audio.stream);
+	blog(LOG_INFO, "[pipewire-audio] Created stream %p", pw->audio.stream);
 
 	pw_stream_add_listener(pw->audio.stream, &pw->audio.stream_listener, &stream_events, &pw->audio);
 

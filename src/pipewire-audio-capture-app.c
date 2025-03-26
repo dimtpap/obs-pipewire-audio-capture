@@ -317,12 +317,12 @@ static void link_bound_cb(void *data, uint32_t global_id)
 static void link_destroy_cb(void *data)
 {
 	struct capture_sink_link *link = data;
-	blog(LOG_DEBUG, "[pipewire] Link %u destroyed", link->id);
+	blog(LOG_DEBUG, "[pipewire-audio] Link %u destroyed", link->id);
 }
 
 static void link_port_to_sink(struct obs_pw_audio_capture_app *pwac, struct target_node_port *port, uint32_t node_id)
 {
-	blog(LOG_DEBUG, "[pipewire] Connecting port %u of node %u to app capture sink", port->id, node_id);
+	blog(LOG_DEBUG, "[pipewire-audio] Connecting port %u of node %u to app capture sink", port->id, node_id);
 
 	uint32_t p = 0;
 	if (pwac->sink.channels == 1 && /* Mono capture sink */
@@ -340,7 +340,7 @@ static void link_port_to_sink(struct obs_pw_audio_capture_app *pwac, struct targ
 	if (!p) {
 		blog(
 			LOG_WARNING,
-			"[pipewire] Could not connect port %u of node %u to app capture sink. No port of app capture sink has channel %s",
+			"[pipewire-audio] Could not connect port %u of node %u to app capture sink. No port of app capture sink has channel %s",
 			port->id, node_id, port->channel);
 		return;
 	}
@@ -360,7 +360,8 @@ static void link_port_to_sink(struct obs_pw_audio_capture_app *pwac, struct targ
 	pw_properties_free(link_props);
 
 	if (!link_proxy) {
-		blog(LOG_WARNING, "[pipewire] Could not connect port %u of node %u to app capture sink", port->id, node_id);
+		blog(LOG_WARNING, "[pipewire-audio] Could not connect port %u of node %u to app capture sink", port->id,
+			 node_id);
 		return;
 	}
 
@@ -398,7 +399,7 @@ static void on_sink_proxy_bound_cb(void *data, uint32_t global_id)
 static void on_sink_proxy_removed_cb(void *data)
 {
 	struct obs_pw_audio_capture_app *pwac = data;
-	blog(LOG_WARNING, "[pipewire] App capture sink %u has been destroyed by the PipeWire remote", pwac->sink.id);
+	blog(LOG_WARNING, "[pipewire-audio] App capture sink %u has been destroyed by the PipeWire remote", pwac->sink.id);
 	pw_proxy_destroy(pwac->sink.proxy);
 }
 
@@ -421,7 +422,7 @@ static void on_sink_proxy_destroy_cb(void *data)
 	pwac->sink.autoconnect_targets = false;
 	pwac->sink.proxy = NULL;
 
-	blog(LOG_DEBUG, "[pipewire] App capture sink %u destroyed", pwac->sink.id);
+	blog(LOG_DEBUG, "[pipewire-audio] App capture sink %u destroyed", pwac->sink.id);
 
 	pwac->sink.id = SPA_ID_INVALID;
 }
@@ -429,7 +430,7 @@ static void on_sink_proxy_destroy_cb(void *data)
 static void on_sink_proxy_error_cb(void *data, int seq, int res, const char *message)
 {
 	UNUSED_PARAMETER(data);
-	blog(LOG_ERROR, "[pipewire] App capture sink error: seq:%d res:%d :%s", seq, res, message);
+	blog(LOG_ERROR, "[pipewire-audio] App capture sink error: seq:%d res:%d :%s", seq, res, message);
 }
 
 static const struct pw_proxy_events sink_proxy_events = {
@@ -498,7 +499,7 @@ static bool make_capture_sink(struct obs_pw_audio_capture_app *pwac, uint32_t ch
 	pw_properties_free(sink_props);
 
 	if (!pwac->sink.proxy) {
-		blog(LOG_WARNING, "[pipewire] Failed to create app capture sink");
+		blog(LOG_WARNING, "[pipewire-audio] Failed to create app capture sink");
 		return false;
 	}
 
@@ -520,15 +521,15 @@ static bool make_capture_sink(struct obs_pw_audio_capture_app *pwac, uint32_t ch
 		return false;
 	}
 
-	blog(LOG_INFO, "[pipewire] Created app capture sink %u with %u channels and position %s", pwac->sink.id, channels,
-		 position);
+	blog(LOG_INFO, "[pipewire-audio] Created app capture sink %u with %u channels and position %s", pwac->sink.id,
+		 channels, position);
 
 	connect_targets(pwac);
 
 	pwac->sink.autoconnect_targets = true;
 
 	if (obs_pw_audio_stream_connect(&pwac->pw.audio, pwac->sink.id, pwac->sink.serial, channels) < 0) {
-		blog(LOG_WARNING, "[pipewire] Error connecting stream %p to app capture sink %u", pwac->pw.audio.stream,
+		blog(LOG_WARNING, "[pipewire-audio] Error connecting stream %p to app capture sink %u", pwac->pw.audio.stream,
 			 pwac->sink.id);
 	}
 
@@ -629,7 +630,7 @@ static void default_node_cb(void *data, const char *name)
 {
 	struct obs_pw_audio_capture_app *pwac = data;
 
-	blog(LOG_DEBUG, "[pipewire] New default sink %s", name);
+	blog(LOG_DEBUG, "[pipewire-audio] New default sink %s", name);
 
 	/* Find the new default sink and bind to it to get its channel info */
 	struct obs_pw_audio_proxy_list_iter iter;
@@ -654,7 +655,8 @@ static void default_node_cb(void *data, const char *name)
 		pw_registry_bind(pwac->pw.registry, default_sink->id, PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, 0);
 	if (!pwac->default_sink.proxy) {
 		if (!pwac->sink.proxy) {
-			blog(LOG_WARNING, "[pipewire] Failed to get default sink info, app capture sink defaulting to stereo");
+			blog(LOG_WARNING,
+				 "[pipewire-audio] Failed to get default sink info, app capture sink defaulting to stereo");
 			make_capture_sink(pwac, 2, "FL,FR");
 		}
 		return;
@@ -683,7 +685,7 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions, const ch
 	if (id == pwac->sink.id) {
 		const char *ser = spa_dict_lookup(props, PW_KEY_OBJECT_SERIAL);
 		if (!ser) {
-			blog(LOG_ERROR, "[pipewire] No object serial found on app capture sink %u", id);
+			blog(LOG_ERROR, "[pipewire-audio] No object serial found on app capture sink %u", id);
 			pwac->sink.serial = 0;
 		} else {
 			pwac->sink.serial = strtoul(ser, NULL, 10);
@@ -760,7 +762,7 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions, const ch
 		if (!obs_pw_audio_default_node_metadata_listen(&pwac->default_sink.metadata, &pwac->pw, id, true,
 													   default_node_cb, pwac) &&
 			!pwac->sink.proxy) {
-			blog(LOG_WARNING, "[pipewire] Failed to get default metadata, app capture sink defaulting to stereo");
+			blog(LOG_WARNING, "[pipewire-audio] Failed to get default metadata, app capture sink defaulting to stereo");
 			make_capture_sink(pwac, 2, "FL,FR");
 		}
 	}

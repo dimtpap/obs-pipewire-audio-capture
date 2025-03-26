@@ -84,10 +84,10 @@ static void start_streaming(struct obs_pw_audio_capture_device *pwac, struct tar
 
 	if (obs_pw_audio_stream_connect(&pwac->pw.audio, node->id, node->serial, node->channels) == 0) {
 		pwac->connected_serial = node->serial;
-		blog(LOG_INFO, "[pipewire] %p streaming from %u", pwac->pw.audio.stream, node->serial);
+		blog(LOG_INFO, "[pipewire-audio] %p streaming from %u", pwac->pw.audio.stream, node->serial);
 	} else {
 		pwac->connected_serial = SPA_ID_INVALID;
-		blog(LOG_WARNING, "[pipewire] Error connecting stream %p", pwac->pw.audio.stream);
+		blog(LOG_WARNING, "[pipewire-audio] Error connecting stream %p", pwac->pw.audio.stream);
 	}
 
 	pw_stream_set_active(pwac->pw.audio.stream, obs_source_active(pwac->source));
@@ -210,7 +210,7 @@ static void default_node_cb(void *data, const char *name)
 {
 	struct obs_pw_audio_capture_device *pwac = data;
 
-	blog(LOG_DEBUG, "[pipewire] New default device %s", name);
+	blog(LOG_DEBUG, "[pipewire-audio] New default device %s", name);
 
 	dstr_copy(&pwac->default_info.name, name);
 
@@ -252,7 +252,7 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions, const ch
 
 			const char *ser = spa_dict_lookup(props, PW_KEY_OBJECT_SERIAL);
 			if (!ser) {
-				blog(LOG_WARNING, "[pipewire] No object serial found on node %u", id);
+				blog(LOG_WARNING, "[pipewire-audio] No object serial found on node %u", id);
 				return;
 			}
 			uint32_t object_serial = strtoul(ser, NULL, 10);
@@ -276,7 +276,7 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions, const ch
 		if (!obs_pw_audio_default_node_metadata_listen(&pwac->default_info.metadata, &pwac->pw, id,
 													   pwac->capture_type == CAPTURE_TYPE_OUTPUT, default_node_cb,
 													   pwac)) {
-			blog(LOG_WARNING, "[pipewire] Failed to get default metadata, cannot detect default audio devices");
+			blog(LOG_WARNING, "[pipewire-audio] Failed to get default metadata, cannot detect default audio devices");
 		}
 	}
 }
