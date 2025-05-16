@@ -1,0 +1,20 @@
+root = true
+
+[*]
+insert_final_newline = true
+trim_trailing_whitespace = true
+charset = utf-8
+indent_style = tab
+indent_size = 8
+
+[CMakeLists.txt]
+indent_style = space
+indent_size = 2
+
+[**/CMakeLists.txt]
+indent_style = space
+indent_size = 2
+
+[cmake/**/*.cmake]
+indent_style = space
+indent_size = 2

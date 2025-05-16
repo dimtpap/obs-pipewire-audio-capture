@@ -147,13 +147,14 @@ static void on_node_info_cb(void *data, const struct pw_node_info *info)
 
 	bool not_streamed = pwac->connected_serial != n->serial;
 	bool has_default_node_name = !dstr_is_empty(&pwac->default_info.name) &&
-								 dstr_cmp(&pwac->default_info.name, n->name) == 0;
+				     dstr_cmp(&pwac->default_info.name, n->name) == 0;
 	bool is_new_default_node = not_streamed && has_default_node_name;
 
 	bool stream_is_unconnected = pw_stream_get_state(pwac->pw.audio.stream, NULL) == PW_STREAM_STATE_UNCONNECTED;
 	bool node_has_target_name = !dstr_is_empty(&pwac->target_name) && dstr_cmp(&pwac->target_name, n->name) == 0;
 
-	if ((pwac->default_info.autoconnect && is_new_default_node) || (stream_is_unconnected && node_has_target_name)) {
+	if ((pwac->default_info.autoconnect && is_new_default_node) ||
+	    (stream_is_unconnected && node_has_target_name)) {
 		start_streaming(pwac, n);
 	}
 }
@@ -182,10 +183,10 @@ static void node_destroy_cb(void *data)
 }
 
 static void register_target_node(struct obs_pw_audio_capture_device *pwac, const char *friendly_name, const char *name,
-								 uint32_t object_serial, uint32_t global_id)
+				 uint32_t object_serial, uint32_t global_id)
 {
 	struct pw_proxy *node_proxy = pw_registry_bind(pwac->pw.registry, global_id, PW_TYPE_INTERFACE_Node,
-												   PW_VERSION_NODE, sizeof(struct target_node));
+						       PW_VERSION_NODE, sizeof(struct target_node));
 	if (!node_proxy) {
 		return;
 	}
@@ -226,7 +227,7 @@ static void default_node_cb(void *data, const char *name)
 
 /* Registry */
 static void on_global_cb(void *data, uint32_t id, uint32_t permissions, const char *type, uint32_t version,
-						 const struct spa_dict *props)
+			 const struct spa_dict *props)
 {
 	UNUSED_PARAMETER(permissions);
 	UNUSED_PARAMETER(version);
@@ -240,15 +241,15 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions, const ch
 	if (strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
 		const char *node_name, *media_class;
 		if (!(node_name = spa_dict_lookup(props, PW_KEY_NODE_NAME)) ||
-			!(media_class = spa_dict_lookup(props, PW_KEY_MEDIA_CLASS))) {
+		    !(media_class = spa_dict_lookup(props, PW_KEY_MEDIA_CLASS))) {
 			return;
 		}
 
 		/* Target device */
 		if ((pwac->capture_type == CAPTURE_TYPE_INPUT &&
-			 (strcmp(media_class, "Audio/Source") == 0 || strcmp(media_class, "Audio/Source/Virtual") == 0)) ||
-			(pwac->capture_type == CAPTURE_TYPE_OUTPUT &&
-			 (strcmp(media_class, "Audio/Sink") == 0 || strcmp(media_class, "Audio/Duplex") == 0))) {
+		     (strcmp(media_class, "Audio/Source") == 0 || strcmp(media_class, "Audio/Source/Virtual") == 0)) ||
+		    (pwac->capture_type == CAPTURE_TYPE_OUTPUT &&
+		     (strcmp(media_class, "Audio/Sink") == 0 || strcmp(media_class, "Audio/Duplex") == 0))) {
 
 			const char *ser = spa_dict_lookup(props, PW_KEY_OBJECT_SERIAL);
 			if (!ser) {
@@ -274,9 +275,10 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions, const ch
 		}
 
 		if (!obs_pw_audio_default_node_metadata_listen(&pwac->default_info.metadata, &pwac->pw, id,
-													   pwac->capture_type == CAPTURE_TYPE_OUTPUT, default_node_cb,
-													   pwac)) {
-			blog(LOG_WARNING, "[pipewire-audio] Failed to get default metadata, cannot detect default audio devices");
+							       pwac->capture_type == CAPTURE_TYPE_OUTPUT,
+							       default_node_cb, pwac)) {
+			blog(LOG_WARNING,
+			     "[pipewire-audio] Failed to get default metadata, cannot detect default audio devices");
 		}
 	}
 }
@@ -293,7 +295,7 @@ static void *pipewire_audio_capture_create(obs_data_t *settings, obs_source_t *s
 	struct obs_pw_audio_capture_device *pwac = bzalloc(sizeof(struct obs_pw_audio_capture_device));
 
 	if (!obs_pw_audio_instance_init(&pwac->pw, &registry_events, pwac, capture_type == CAPTURE_TYPE_OUTPUT, true,
-									source)) {
+					source)) {
 		obs_pw_audio_instance_destroy(&pwac->pw);
 
 		bfree(pwac);
@@ -345,7 +347,7 @@ static obs_properties_t *pipewire_audio_capture_properties(void *data)
 	obs_properties_t *p = obs_properties_create();
 
 	obs_property_t *targets_list = obs_properties_add_list(p, SETTING_TARGET_SERIAL, obs_module_text("Device"),
-														   OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
+							       OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
 
 	obs_property_list_add_int(targets_list, obs_module_text("Default"), PW_ID_ANY);
 

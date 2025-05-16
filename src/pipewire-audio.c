@@ -186,7 +186,7 @@ static void on_process_cb(void *data)
 	struct spa_buffer *buf = b->buffer;
 
 	if (!s->info.sample_rate || buf->n_datas == 0 || buf->datas[0].chunk->stride == 0 ||
-		buf->datas[0].type != SPA_DATA_MemPtr) {
+	    buf->datas[0].type != SPA_DATA_MemPtr) {
 		goto queue;
 	}
 
@@ -206,8 +206,8 @@ static void on_process_cb(void *data)
 		  * (https://gitlab.freedesktop.org/pipewire/pipewire/-/blob/0.3.52/pipewire-jack/src/pipewire-jack.c#L5639)
 		  * which is used in the linux-jack plugin to correctly set the timestamp
 		  * (https://github.com/obsproject/obs-studio/blob/27.2.4/plugins/linux-jack/jack-wrapper.c#L87) */
-		double period_nsecs =
-			s->pos->clock.duration * (double)SPA_NSEC_PER_SEC / (s->info.sample_rate * s->pos->clock.rate_diff);
+		double period_nsecs = s->pos->clock.duration * (double)SPA_NSEC_PER_SEC /
+				      (s->info.sample_rate * s->pos->clock.rate_diff);
 
 		out.timestamp = now - (uint64_t)period_nsecs;
 	} else {
@@ -226,8 +226,8 @@ static void on_state_changed_cb(void *data, enum pw_stream_state old, enum pw_st
 
 	struct obs_pw_audio_stream *s = data;
 
-	blog(LOG_DEBUG, "[pipewire-audio] Stream %p state: \"%s\" (error: %s)", s->stream, pw_stream_state_as_string(state),
-		 error ? error : "none");
+	blog(LOG_DEBUG, "[pipewire-audio] Stream %p state: \"%s\" (error: %s)", s->stream,
+	     pw_stream_state_as_string(state), error ? error : "none");
 }
 
 static void on_param_changed_cb(void *data, uint32_t id, const struct spa_pod *param)
@@ -242,7 +242,7 @@ static void on_param_changed_cb(void *data, uint32_t id, const struct spa_pod *p
 		blog(LOG_WARNING, "[pipewire-audio] Stream %p failed to parse audio format info", s->stream);
 	} else {
 		blog(LOG_INFO, "[pipewire-audio] %p Got format: rate %u - channels %u - format %u", s->stream,
-			 s->info.sample_rate, s->info.speakers, s->info.format);
+		     s->info.sample_rate, s->info.speakers, s->info.format);
 	}
 }
 
@@ -266,7 +266,7 @@ static const struct pw_stream_events stream_events = {
 };
 
 int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, uint32_t target_id, uint32_t target_serial,
-								uint32_t audio_channels)
+				uint32_t audio_channels)
 {
 	enum spa_audio_channel pos[8];
 	obs_channels_to_spa_audio_position(pos, audio_channels);
@@ -276,22 +276,23 @@ int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, uint32_t target_i
 	const struct spa_pod *params[1];
 
 	params[0] = spa_pod_builder_add_object(
-		&b, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat, SPA_FORMAT_mediaType, SPA_POD_Id(SPA_MEDIA_TYPE_audio),
-		SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw), SPA_FORMAT_AUDIO_channels,
-		SPA_POD_Int(audio_channels), SPA_FORMAT_AUDIO_position,
-		SPA_POD_Array(sizeof(enum spa_audio_channel), SPA_TYPE_Id, audio_channels, pos), SPA_FORMAT_AUDIO_format,
+		&b, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat, SPA_FORMAT_mediaType,
+		SPA_POD_Id(SPA_MEDIA_TYPE_audio), SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
+		SPA_FORMAT_AUDIO_channels, SPA_POD_Int(audio_channels), SPA_FORMAT_AUDIO_position,
+		SPA_POD_Array(sizeof(enum spa_audio_channel), SPA_TYPE_Id, audio_channels, pos),
+		SPA_FORMAT_AUDIO_format,
 		SPA_POD_CHOICE_ENUM_Id(9, SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_U8, SPA_AUDIO_FORMAT_S16_LE,
-							   SPA_AUDIO_FORMAT_S32_LE, SPA_AUDIO_FORMAT_F32_LE, SPA_AUDIO_FORMAT_U8P,
-							   SPA_AUDIO_FORMAT_S16P, SPA_AUDIO_FORMAT_S32P, SPA_AUDIO_FORMAT_F32P));
+				       SPA_AUDIO_FORMAT_S32_LE, SPA_AUDIO_FORMAT_F32_LE, SPA_AUDIO_FORMAT_U8P,
+				       SPA_AUDIO_FORMAT_S16P, SPA_AUDIO_FORMAT_S32P, SPA_AUDIO_FORMAT_F32P));
 
 	struct pw_properties *stream_props = pw_properties_new(NULL, NULL);
 	pw_properties_setf(stream_props, PW_KEY_TARGET_OBJECT, "%u", target_serial);
 	pw_stream_update_properties(s->stream, &stream_props->dict);
 	pw_properties_free(stream_props);
 
-	return pw_stream_connect(s->stream, PW_DIRECTION_INPUT, target_id,
-							 PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS | PW_STREAM_FLAG_DONT_RECONNECT,
-							 params, 1);
+	return pw_stream_connect(
+		s->stream, PW_DIRECTION_INPUT, target_id,
+		PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS | PW_STREAM_FLAG_DONT_RECONNECT, params, 1);
 }
 /* ------------------------------------------------- */
 
@@ -321,8 +322,8 @@ static const struct pw_core_events core_events = {
 };
 
 bool obs_pw_audio_instance_init(struct obs_pw_audio_instance *pw, const struct pw_registry_events *registry_events,
-								void *registry_cb_data, bool stream_capture_sink, bool stream_want_driver,
-								obs_source_t *stream_output)
+				void *registry_cb_data, bool stream_capture_sink, bool stream_want_driver,
+				obs_source_t *stream_output)
 {
 	pw->thread_loop = pw_thread_loop_new("PipeWire thread loop", NULL);
 	pw->context = pw_context_new(pw_thread_loop_get_loop(pw->thread_loop), NULL, 0);
@@ -348,10 +349,11 @@ bool obs_pw_audio_instance_init(struct obs_pw_audio_instance *pw, const struct p
 	}
 	pw_registry_add_listener(pw->registry, &pw->registry_listener, registry_events, registry_cb_data);
 
-	struct pw_properties *stream_props = pw_properties_new(
-		PW_KEY_MEDIA_NAME, obs_source_get_name(stream_output), PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY,
-		"Capture", PW_KEY_MEDIA_ROLE, "Production", PW_KEY_NODE_WANT_DRIVER, stream_want_driver ? "true" : "false",
-		PW_KEY_STREAM_CAPTURE_SINK, stream_capture_sink ? "true" : "false", NULL);
+	struct pw_properties *stream_props =
+		pw_properties_new(PW_KEY_MEDIA_NAME, obs_source_get_name(stream_output), PW_KEY_MEDIA_TYPE, "Audio",
+				  PW_KEY_MEDIA_CATEGORY, "Capture", PW_KEY_MEDIA_ROLE, "Production",
+				  PW_KEY_NODE_WANT_DRIVER, stream_want_driver ? "true" : "false",
+				  PW_KEY_STREAM_CAPTURE_SINK, stream_capture_sink ? "true" : "false", NULL);
 
 	pw_properties_setf(stream_props, PW_KEY_NODE_NAME, "OBS: %s", obs_source_get_name(stream_output));
 
@@ -415,7 +417,7 @@ static int on_metadata_property_cb(void *data, uint32_t id, const char *key, con
 	struct obs_pw_audio_default_node_metadata *metadata = data;
 
 	if (id == PW_ID_CORE && key && value &&
-		strcmp(key, metadata->wants_sink ? "default.audio.sink" : "default.audio.source") == 0) {
+	    strcmp(key, metadata->wants_sink ? "default.audio.sink" : "default.audio.source") == 0) {
 		char val[128];
 		if (json_object_find(value, "name", val, sizeof(val)) && *val) {
 			metadata->default_node_callback(metadata->data, val);
@@ -455,8 +457,8 @@ static const struct pw_proxy_events metadata_proxy_events = {
 };
 
 bool obs_pw_audio_default_node_metadata_listen(struct obs_pw_audio_default_node_metadata *metadata,
-											   struct obs_pw_audio_instance *pw, uint32_t global_id, bool wants_sink,
-											   void (*default_node_callback)(void *data, const char *name), void *data)
+					       struct obs_pw_audio_instance *pw, uint32_t global_id, bool wants_sink,
+					       void (*default_node_callback)(void *data, const char *name), void *data)
 {
 	if (metadata->proxy) {
 		pw_proxy_destroy(metadata->proxy);
@@ -529,8 +531,8 @@ static const struct pw_proxy_events proxy_events = {
 };
 
 void obs_pw_audio_proxied_object_new(struct pw_proxy *proxy, struct spa_list *list,
-									 void (*bound_callback)(void *data, uint32_t global_id),
-									 void (*destroy_callback)(void *data))
+				     void (*bound_callback)(void *data, uint32_t global_id),
+				     void (*destroy_callback)(void *data))
 {
 	struct obs_pw_audio_proxied_object *obj = bmalloc(sizeof(struct obs_pw_audio_proxied_object));
 
@@ -550,8 +552,8 @@ void *obs_pw_audio_proxied_object_get_user_data(struct obs_pw_audio_proxied_obje
 }
 
 void obs_pw_audio_proxy_list_init(struct obs_pw_audio_proxy_list *list,
-								  void (*bound_callback)(void *data, uint32_t global_id),
-								  void (*destroy_callback)(void *data))
+				  void (*bound_callback)(void *data, uint32_t global_id),
+				  void (*destroy_callback)(void *data))
 {
 	spa_list_init(&list->list);
 

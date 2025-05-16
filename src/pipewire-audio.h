@@ -56,7 +56,7 @@ struct obs_pw_audio_stream {
  * @return 0 on success, < 0 on error
  */
 int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, uint32_t target_id, uint32_t target_serial,
-								uint32_t channels);
+				uint32_t channels);
 /* ------------------------------------------------- */
 
 /**
@@ -82,8 +82,8 @@ struct obs_pw_audio_instance {
  * @return true on success, false on error
  */
 bool obs_pw_audio_instance_init(struct obs_pw_audio_instance *pw, const struct pw_registry_events *registry_events,
-								void *registry_cb_data, bool stream_capture_sink, bool stream_want_driver,
-								obs_source_t *stream_output);
+				void *registry_cb_data, bool stream_capture_sink, bool stream_want_driver,
+				obs_source_t *stream_output);
 
 /**
  * Destroy a PipeWire instance
@@ -116,8 +116,8 @@ struct obs_pw_audio_default_node_metadata {
  * @return true on success, false on error
  */
 bool obs_pw_audio_default_node_metadata_listen(struct obs_pw_audio_default_node_metadata *metadata,
-											   struct obs_pw_audio_instance *pw, uint32_t global_id, bool wants_sink,
-											   void (*default_node_callback)(void *data, const char *name), void *data);
+					       struct obs_pw_audio_instance *pw, uint32_t global_id, bool wants_sink,
+					       void (*default_node_callback)(void *data, const char *name), void *data);
 /* ------------------------------------------------- */
 
 /* Helpers for storing remote PipeWire objects */
@@ -143,8 +143,8 @@ struct obs_pw_audio_proxy_list {
 };
 
 void obs_pw_audio_proxy_list_init(struct obs_pw_audio_proxy_list *list,
-								  void (*bound_callback)(void *data, uint32_t global_id),
-								  void (*destroy_callback)(void *data));
+				  void (*bound_callback)(void *data, uint32_t global_id),
+				  void (*destroy_callback)(void *data));
 
 void obs_pw_audio_proxy_list_append(struct obs_pw_audio_proxy_list *list, struct pw_proxy *proxy);
 
