@@ -388,6 +388,52 @@ static void link_node_to_sink(struct obs_pw_audio_capture_app *pwac, struct targ
 /** The app capture sink is created when there
   * is info about the system's default sink.
   * See the on_metadata and on_default_sink callbacks */
+static void destroy_sink_links(struct obs_pw_audio_capture_app *pwac)
+{
+	obs_pw_audio_proxy_list_clear(&pwac->sink.links);
+}
+
+static void connect_targets(struct obs_pw_audio_capture_app *pwac)
+{
+	if (!pwac->sink.proxy) {
+		return;
+	}
+
+	destroy_sink_links(pwac);
+
+	if (pwac->selections.num == 0) {
+		return;
+	}
+
+	struct obs_pw_audio_proxy_list_iter iter;
+	obs_pw_audio_proxy_list_iter_init(&iter, &pwac->nodes);
+
+	struct target_node *node;
+	while (obs_pw_audio_proxy_list_iter_next(&iter, (void **)&node)) {
+		if (node_is_targeted(pwac, node)) {
+			link_node_to_sink(pwac, node);
+		}
+	}
+}
+
+static void finalize_capture_sink(struct obs_pw_audio_capture_app *pwac)
+{
+	if (!pwac->sink.proxy || pwac->sink.id == SPA_ID_INVALID || pwac->sink.serial == SPA_ID_INVALID ||
+	    pwac->sink.ports.num != pwac->sink.channels) {
+		return;
+	}
+
+	blog(LOG_DEBUG, "[pipewire-audio] App capture sink ready");
+
+	connect_targets(pwac);
+
+	pwac->sink.autoconnect_targets = true;
+
+	if (obs_pw_audio_stream_connect(&pwac->pw.audio, pwac->sink.id, pwac->sink.serial, pwac->sink.channels) < 0) {
+		blog(LOG_WARNING, "[pipewire-audio] Error connecting stream %p to app capture sink %u",
+		     pwac->pw.audio.stream, pwac->sink.id);
+	}
+}
 
 static void on_sink_proxy_bound_cb(void *data, uint32_t global_id)
 {
@@ -444,40 +490,16 @@ static const struct pw_proxy_events sink_proxy_events = {
 
 static void register_capture_sink_port(struct obs_pw_audio_capture_app *pwac, uint32_t global_id, const char *channel)
 {
+	blog(LOG_DEBUG, "[pipewire-audio] Registering app capture sink port %u", global_id);
+
 	struct capture_sink_port *port = da_push_back_new(pwac->sink.ports);
 	port->channel = bstrdup(channel);
 	port->id = global_id;
+
+	finalize_capture_sink(pwac);
 }
 
-static void destroy_sink_links(struct obs_pw_audio_capture_app *pwac)
-{
-	obs_pw_audio_proxy_list_clear(&pwac->sink.links);
-}
-
-static void connect_targets(struct obs_pw_audio_capture_app *pwac)
-{
-	if (!pwac->sink.proxy) {
-		return;
-	}
-
-	destroy_sink_links(pwac);
-
-	if (pwac->selections.num == 0) {
-		return;
-	}
-
-	struct obs_pw_audio_proxy_list_iter iter;
-	obs_pw_audio_proxy_list_iter_init(&iter, &pwac->nodes);
-
-	struct target_node *node;
-	while (obs_pw_audio_proxy_list_iter_next(&iter, (void **)&node)) {
-		if (node_is_targeted(pwac, node)) {
-			link_node_to_sink(pwac, node);
-		}
-	}
-}
-
-static bool make_capture_sink(struct obs_pw_audio_capture_app *pwac, uint32_t channels, const char *position)
+static void make_capture_sink(struct obs_pw_audio_capture_app *pwac, uint32_t channels, const char *position)
 {
 	/* HACK: In order to hide the app capture sink from PulseAudio applications, for example to prevent them from intentionally outputting
 	 * to it, or to not fill up desktop audio control menus with sinks, the media class is set to Audio/Sink/Internal.
@@ -502,7 +524,7 @@ static bool make_capture_sink(struct obs_pw_audio_capture_app *pwac, uint32_t ch
 
 	if (!pwac->sink.proxy) {
 		blog(LOG_WARNING, "[pipewire-audio] Failed to create app capture sink");
-		return false;
+		return;
 	}
 
 	pwac->sink.channels = channels;
@@ -513,30 +535,7 @@ static bool make_capture_sink(struct obs_pw_audio_capture_app *pwac, uint32_t ch
 
 	pw_proxy_add_listener(pwac->sink.proxy, &pwac->sink.proxy_listener, &sink_proxy_events, pwac);
 
-	while (pwac->sink.id == SPA_ID_INVALID || pwac->sink.serial == SPA_ID_INVALID ||
-	       pwac->sink.ports.num != channels) {
-		/* Iterate until the sink is bound and all the ports are registered */
-		pw_loop_iterate(pw_thread_loop_get_loop(pwac->pw.thread_loop), -1);
-	}
-
-	if (pwac->sink.serial == 0) {
-		pw_proxy_destroy(pwac->sink.proxy);
-		return false;
-	}
-
-	blog(LOG_INFO, "[pipewire-audio] Created app capture sink %u with %u channels and position %s", pwac->sink.id,
-	     channels, position);
-
-	connect_targets(pwac);
-
-	pwac->sink.autoconnect_targets = true;
-
-	if (obs_pw_audio_stream_connect(&pwac->pw.audio, pwac->sink.id, pwac->sink.serial, channels) < 0) {
-		blog(LOG_WARNING, "[pipewire-audio] Error connecting stream %p to app capture sink %u",
-		     pwac->pw.audio.stream, pwac->sink.id);
-	}
-
-	return true;
+	blog(LOG_DEBUG, "[pipewire-audio] Created app capture sink");
 }
 
 static void destroy_capture_sink(struct obs_pw_audio_capture_app *pwac)
@@ -692,6 +691,7 @@ static void on_global_cb(void *data, uint32_t id, uint32_t permissions, const ch
 			pwac->sink.serial = 0;
 		} else {
 			pwac->sink.serial = strtoul(ser, NULL, 10);
+			finalize_capture_sink(pwac);
 		}
 	}
 
