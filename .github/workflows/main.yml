@@ -16,7 +16,7 @@ jobs:
   build-plugin:
     strategy:
       matrix:
-        obs-version: ['28.0.0', '30.2.0']
+        obs-version: ['28.0.0', '30.2.0', '32.0.0']
     name: 'Build Plugin'
     runs-on: ubuntu-latest
     steps:
@@ -37,7 +37,7 @@ jobs:
       - name: 'Install system dependencies'
         run: |
           sudo apt update
-          sudo apt install cmake ninja-build pkg-config clang clang-format build-essential curl ccache git zsh\
+          sudo apt install cmake extra-cmake-modules ninja-build pkg-config clang clang-format build-essential curl ccache git zsh\
                            libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libswresample-dev libswscale-dev\
                            libcurl4-openssl-dev\
                            libxcb1-dev libx11-xcb-dev\
@@ -46,10 +46,10 @@ jobs:
                            libgles2-mesa-dev\
                            libpipewire-0.3-dev\
                            uuid-dev\
-                           uthash-dev libjansson-dev
+                           uthash-dev libjansson-dev libsimde-dev libdrm-dev
       - name: 'Configure OBS'
         if: steps.cache-obs.outputs.cache-hit != 'true'
-        run: cmake -B obs-src/build -S obs-src -DOBS_CMAKE_VERSION=3 -DENABLE_BROWSER=OFF -DENABLE_UI=OFF -DENABLE_SCRIPTING=OFF -DENABLE_PULSEAUDIO=OFF -DENABLE_WAYLAND=OFF -DENABLE_PLUGINS=OFF
+        run: cmake -B obs-src/build -S obs-src -DOBS_CMAKE_VERSION=3 -DENABLE_BROWSER=OFF -DENABLE_UI=OFF -DENABLE_FRONTEND=OFF -DENABLE_SCRIPTING=OFF -DENABLE_PULSEAUDIO=OFF -DENABLE_WAYLAND=OFF -DENABLE_PLUGINS=OFF
       - name: 'Build OBS'
         if: steps.cache-obs.outputs.cache-hit != 'true'
         run: cmake --build obs-src/build -j4
