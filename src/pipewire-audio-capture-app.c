@@ -501,15 +501,8 @@ static void register_capture_sink_port(struct obs_pw_audio_capture_app *pwac, ui
 
 static void make_capture_sink(struct obs_pw_audio_capture_app *pwac, uint32_t channels, const char *position)
 {
-	/* HACK: In order to hide the app capture sink from PulseAudio applications, for example to prevent them from intentionally outputting
-	 * to it, or to not fill up desktop audio control menus with sinks, the media class is set to Audio/Sink/Internal.
-	 * This works because pipewire-pulse only reports nodes with the media class set to Audio/Sink as proper outputs
-	 * https://gitlab.freedesktop.org/pipewire/pipewire/-/blob/0.3.72/src/modules/module-protocol-pulse/manager.c?ref_type=tags#L944
-	 * and because of https://gitlab.freedesktop.org/pipewire/pipewire/-/merge_requests/1564#note_1861698, which works the same for
-	 * deciding what nodes need an audio adapter.
-	 */
 	struct pw_properties *sink_props = pw_properties_new(PW_KEY_FACTORY_NAME, "support.null-audio-sink",
-							     PW_KEY_MEDIA_CLASS, "Audio/Sink/Internal",
+							     PW_KEY_MEDIA_CLASS, "Stream/Input/Audio",
 							     PW_KEY_NODE_VIRTUAL, "true", SPA_KEY_AUDIO_POSITION,
 							     position, NULL);
 
