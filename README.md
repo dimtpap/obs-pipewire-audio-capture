@@ -20,7 +20,7 @@ See the [PipeWire wiki](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis
 ### Installation
 Get the `linux-pipewire-audio-(version).tar.gz` archive from the [latest release](https://github.com/dimtpap/obs-pipewire-audio-capture/releases/latest)  
 If OBS Studio is installed as a
-- Regular package: Extract the archive in `~/.config/obs-studio/plugins/`  
+- Native package: Extract the archive in `~/.config/obs-studio/plugins/`  
   Your files should look like this
   ```
   /home/user/.config/obs-studio/plugins
