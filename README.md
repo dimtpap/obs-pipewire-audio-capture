@@ -18,22 +18,26 @@ If applications aren't showing up in the plugin, your system may be missing one 
 See the [PipeWire wiki](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/home) for more info.
 
 ### Installation
-Get the `linux-pipewire-audio-(version).tar.gz` archive from the [latest release](https://github.com/dimtpap/obs-pipewire-audio-capture/releases/latest)  
-If OBS Studio is installed as a
-- Native package: Extract the archive in `~/.config/obs-studio/plugins/`  
-  Your files should look like this
-  ```
-  /home/user/.config/obs-studio/plugins
-  ├── linux-pipewire-audio
-  │   ├── bin
-  │   │   └── 64bit
-  │   │       └── linux-pipewire-audio.so
-  │   └── data
-  │       └── locale
-  │           ...           
-  ```
-- Flatpak:
+1. Get the `linux-pipewire-audio-(version).tar.gz` archive from the [latest release](https://github.com/dimtpap/obs-pipewire-audio-capture/releases/latest)
+2. In OBS Studio, go to **File**, then click **Show Settings Folder**
+3. In the folder that opens, create a folder called `plugins` if it doesn't already exist
+4. Extract the archive you downloaded in the `plugins` folder
+5. Restart OBS Studio
+6. If you're using the Flatpak and the sources aren't working, run `flatpak override --filesystem=xdg-run/pipewire-0 com.obsproject.Studio` and restart OBS Studio
+
+Your files should look like this
+```
+.../obs-studio/plugins
+├── linux-pipewire-audio
+│   ├── bin
+│   │   └── 64bit
+│   │       └── linux-pipewire-audio.so
+│   └── data
+│       └── locale
+│           ...           
+```
 > [!IMPORTANT]
+> ## Flatpak users note
 > ***THIS INSTALLATION METHOD IS UNSUPPORTED BY THE OBS STUDIO TEAM AND CAN BREAK AT ANY TIME***  
 > This plugin relies on a Flatpak permission that OBS Studio could remove at any time, so it can't be on Flathub.  
 > If after updating OBS Studio the plugin stops working, check the latest release for a new version, or build the plugin yourself
@@ -41,8 +45,6 @@ If OBS Studio is installed as a
 > 
 > Note that native OBS Studio packages do not have this problem.
 
-  Extract the archive in `~/.var/app/com.obsproject.Studio/config/obs-studio/plugins/`  
-    Note: If the plugin isn't working run `flatpak override --filesystem=xdg-run/pipewire-0 com.obsproject.Studio`
 ### Building (for development)
 Ensure you have CMake, PipeWire and OBS Studio/libobs development packages, then in the repo's root:
 ```sh
