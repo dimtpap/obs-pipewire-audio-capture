@@ -268,22 +268,39 @@ static const struct pw_stream_events stream_events = {
 int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, uint32_t target_id, uint32_t target_serial,
 				uint32_t audio_channels)
 {
+	if (audio_channels == 0) {
+		blog(LOG_WARNING,
+		     "[pipewire-audio] Stream %p connecting without channel info. Channels may be mapped incorrectly.",
+		     s);
+	}
+
 	enum spa_audio_channel pos[8];
-	obs_channels_to_spa_audio_position(pos, audio_channels);
 
 	uint8_t buffer[2048];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	const struct spa_pod *params[1];
 
-	params[0] = spa_pod_builder_add_object(
-		&b, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat, SPA_FORMAT_mediaType,
-		SPA_POD_Id(SPA_MEDIA_TYPE_audio), SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-		SPA_FORMAT_AUDIO_channels, SPA_POD_Int(audio_channels), SPA_FORMAT_AUDIO_position,
-		SPA_POD_Array(sizeof(enum spa_audio_channel), SPA_TYPE_Id, audio_channels, pos),
-		SPA_FORMAT_AUDIO_format,
-		SPA_POD_CHOICE_ENUM_Id(9, SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_U8, SPA_AUDIO_FORMAT_S16_LE,
-				       SPA_AUDIO_FORMAT_S32_LE, SPA_AUDIO_FORMAT_F32_LE, SPA_AUDIO_FORMAT_U8P,
-				       SPA_AUDIO_FORMAT_S16P, SPA_AUDIO_FORMAT_S32P, SPA_AUDIO_FORMAT_F32P));
+	if (audio_channels) {
+		obs_channels_to_spa_audio_position(pos, audio_channels);
+
+		params[0] = spa_pod_builder_add_object(
+			&b, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat, SPA_FORMAT_mediaType,
+			SPA_POD_Id(SPA_MEDIA_TYPE_audio), SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
+			SPA_FORMAT_AUDIO_channels, SPA_POD_Int(audio_channels), SPA_FORMAT_AUDIO_position,
+			SPA_POD_Array(sizeof(enum spa_audio_channel), SPA_TYPE_Id, audio_channels, pos),
+			SPA_FORMAT_AUDIO_format,
+			SPA_POD_CHOICE_ENUM_Id(9, SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_U8, SPA_AUDIO_FORMAT_S16_LE,
+					       SPA_AUDIO_FORMAT_S32_LE, SPA_AUDIO_FORMAT_F32_LE, SPA_AUDIO_FORMAT_U8P,
+					       SPA_AUDIO_FORMAT_S16P, SPA_AUDIO_FORMAT_S32P, SPA_AUDIO_FORMAT_F32P));
+	} else {
+		params[0] = spa_pod_builder_add_object(
+			&b, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat, SPA_FORMAT_mediaType,
+			SPA_POD_Id(SPA_MEDIA_TYPE_audio), SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
+			SPA_FORMAT_AUDIO_format,
+			SPA_POD_CHOICE_ENUM_Id(9, SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_U8, SPA_AUDIO_FORMAT_S16_LE,
+					       SPA_AUDIO_FORMAT_S32_LE, SPA_AUDIO_FORMAT_F32_LE, SPA_AUDIO_FORMAT_U8P,
+					       SPA_AUDIO_FORMAT_S16P, SPA_AUDIO_FORMAT_S32P, SPA_AUDIO_FORMAT_F32P));
+	}
 
 	struct pw_properties *stream_props = pw_properties_new(NULL, NULL);
 	pw_properties_setf(stream_props, PW_KEY_TARGET_OBJECT, "%u", target_serial);

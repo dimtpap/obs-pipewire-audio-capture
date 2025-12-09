@@ -20,6 +20,8 @@
 
 #include "pipewire-audio.h"
 
+#include <spa/debug/types.h>
+
 #include <util/dstr.h>
 
 /* Source for capturing applciation audio using PipeWire */
@@ -549,52 +551,78 @@ static void destroy_capture_sink(struct obs_pw_audio_capture_app *pwac)
 /* ------------------------------------------------- */
 
 /* Default system sink */
-static void on_default_sink_info_cb(void *data, const struct pw_node_info *info)
+static void on_default_sink_param_cb(void *data, int seq, uint32_t id, uint32_t index, uint32_t next,
+				     const struct spa_pod *param)
 {
-	if ((info->change_mask & PW_NODE_CHANGE_MASK_PROPS) == 0 || !info->props || !info->props->n_items) {
+	UNUSED_PARAMETER(seq);
+	UNUSED_PARAMETER(index);
+	UNUSED_PARAMETER(next);
+
+	if (id != SPA_PARAM_EnumFormat) {
 		return;
 	}
 
 	struct obs_pw_audio_capture_app *pwac = data;
 
-	/** Use stereo if
-	  * - The default sink uses the Pro Audio profile, since all streams will be configured to use stereo
-	  * https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/FAQ#what-is-the-pro-audio-profile
-	  * - The default sink doesn't have the needed props and there isn't already an app capture sink */
+	uint32_t media_type = 0, parsed_id = 0, channels = 0;
+	struct spa_pod *position_pod = NULL;
 
-	const char *channels = spa_dict_lookup(info->props, PW_KEY_AUDIO_CHANNELS);
-	const char *position = spa_dict_lookup(info->props, SPA_KEY_AUDIO_POSITION);
-	if (!channels || !position) {
-		if (pwac->sink.proxy) {
-			return;
+	struct spa_pod_parser p;
+	spa_pod_parser_pod(&p, param);
+
+	spa_pod_parser_get_object(&p, SPA_TYPE_OBJECT_Format, &parsed_id, SPA_FORMAT_mediaType, SPA_POD_Id(&media_type),
+				  SPA_FORMAT_AUDIO_channels, SPA_POD_OPT_Int(&channels), SPA_FORMAT_AUDIO_position,
+				  SPA_POD_OPT_Pod(&position_pod));
+
+	if (parsed_id != SPA_PARAM_EnumFormat || media_type != SPA_MEDIA_TYPE_audio || !channels || !position_pod) {
+		goto stereo_fallback;
+	}
+
+	uint32_t position_n = 0;
+	uint32_t *position_arr = spa_pod_get_array(position_pod, &position_n);
+
+	struct dstr position_str;
+	dstr_init(&position_str);
+
+	for (size_t i = 0; i < position_n; i++) {
+		const char *chn = spa_debug_type_find_short_name(spa_type_audio_channel, position_arr[i]);
+
+		if (strstr(chn, "AUX") != NULL) {
+			// Sink is configured for pro audio, use stereo
+			// https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/FAQ#what-is-the-pro-audio-profile
+			dstr_copy(&position_str, "FL,FR");
+			break;
 		}
-		channels = "2";
-		position = "FL,FR";
-	} else if (astrstri(position, "AUX")) {
-		/* Pro Audio sinks use AUX0,AUX1... and so on as their position (see link above) */
-		channels = "2";
-		position = "FL,FR";
+
+		dstr_cat(&position_str, chn);
+
+		if (position_n - 1 != i) {
+			dstr_cat_ch(&position_str, ',');
+		}
 	}
 
-	uint32_t c = strtoul(channels, NULL, 10);
-	if (!c) {
+	if (channels != pwac->sink.channels || dstr_cmpi(&position_str, pwac->sink.position.array) != 0) {
+		destroy_capture_sink(pwac);
+		make_capture_sink(pwac, channels, position_str.array);
+	}
+
+	dstr_free(&position_str);
+	return;
+
+stereo_fallback:
+	if (pwac->sink.proxy) {
 		return;
 	}
 
-	/* No need to create a new capture sink if the channels are the same */
-	if (pwac->sink.channels == c && !dstr_is_empty(&pwac->sink.position) &&
-	    dstr_cmp(&pwac->sink.position, position) == 0) {
-		return;
-	}
+	blog(LOG_WARNING, "[pipewire-audio] Could not parse format of default sink. Falling back to stereo.");
 
 	destroy_capture_sink(pwac);
-
-	make_capture_sink(pwac, c, position);
+	make_capture_sink(pwac, 2, "[FL,FR]");
 }
 
 static const struct pw_node_events default_sink_events = {
 	PW_VERSION_NODE_EVENTS,
-	.info = on_default_sink_info_cb,
+	.param = on_default_sink_param_cb,
 };
 
 static void on_default_sink_proxy_removed_cb(void *data)
@@ -661,6 +689,8 @@ static void default_node_cb(void *data, const char *name)
 				     pwac);
 	pw_proxy_add_listener(pwac->default_sink.proxy, &pwac->default_sink.proxy_listener, &default_sink_proxy_events,
 			      pwac);
+
+	pw_node_subscribe_params((struct pw_node *)pwac->default_sink.proxy, (uint32_t[]){SPA_PARAM_EnumFormat}, 1);
 }
 /* ------------------------------------------------- */
 

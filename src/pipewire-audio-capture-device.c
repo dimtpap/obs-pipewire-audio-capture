@@ -78,10 +78,6 @@ static void start_streaming(struct obs_pw_audio_capture_device *pwac, struct tar
 		pwac->connected_serial = SPA_ID_INVALID;
 	}
 
-	if (!node->channels) {
-		return;
-	}
-
 	if (obs_pw_audio_stream_connect(&pwac->pw.audio, node->id, node->serial, node->channels) == 0) {
 		pwac->connected_serial = node->serial;
 		blog(LOG_INFO, "[pipewire-audio] %p streaming from %u", pwac->pw.audio.stream, node->serial);
@@ -124,24 +120,33 @@ struct target_node *get_node_by_serial(struct obs_pw_audio_capture_device *pwac,
 }
 
 /* Target node */
-static void on_node_info_cb(void *data, const struct pw_node_info *info)
+static void on_node_param_cb(void *data, int seq, uint32_t id, uint32_t index, uint32_t next,
+			     const struct spa_pod *param)
 {
-	if ((info->change_mask & PW_NODE_CHANGE_MASK_PROPS) == 0 || !info->props || !info->props->n_items) {
+	UNUSED_PARAMETER(seq);
+	UNUSED_PARAMETER(index);
+	UNUSED_PARAMETER(next);
+
+	if (id != SPA_PARAM_EnumFormat) {
 		return;
 	}
-
-	const char *channels = spa_dict_lookup(info->props, PW_KEY_AUDIO_CHANNELS);
-	if (!channels) {
-		return;
-	}
-
-	uint32_t c = strtoul(channels, NULL, 10);
 
 	struct target_node *n = data;
-	if (n->channels == c) {
-		return;
+
+	struct spa_pod_parser p;
+	spa_pod_parser_pod(&p, param);
+
+	uint32_t parsed_id = 0, channels = 0, media_type = 0;
+
+	spa_pod_parser_get_object(&p, SPA_TYPE_OBJECT_Format, &parsed_id, SPA_FORMAT_mediaType, SPA_POD_Id(&media_type),
+				  SPA_FORMAT_AUDIO_channels, SPA_POD_OPT_Int(&channels));
+
+	if (media_type != SPA_MEDIA_TYPE_audio) {
+		blog(LOG_WARNING,
+		     "[pipewire-audio] Could not parse target node format. Channels may be mapped incorrectly.");
 	}
-	n->channels = c;
+
+	n->channels = channels;
 
 	struct obs_pw_audio_capture_device *pwac = n->pwac;
 
@@ -161,7 +166,7 @@ static void on_node_info_cb(void *data, const struct pw_node_info *info)
 
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
-	.info = on_node_info_cb,
+	.param = on_node_param_cb,
 };
 
 static void node_destroy_cb(void *data)
@@ -203,6 +208,8 @@ static void register_target_node(struct obs_pw_audio_capture_device *pwac, const
 
 	spa_zero(n->node_listener);
 	pw_proxy_add_object_listener(node_proxy, &n->node_listener, &node_events, n);
+
+	pw_node_subscribe_params((struct pw_node *)node_proxy, (uint32_t[]){SPA_PARAM_EnumFormat}, 1);
 }
 /* ------------------------------------------------- */
 
