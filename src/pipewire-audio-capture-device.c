@@ -225,7 +225,8 @@ static void default_node_cb(void *data, const char *name)
 	struct target_node *n = get_node_by_name(pwac, name);
 	if (n) {
 		pwac->default_info.node_serial = n->serial;
-		if (pwac->default_info.autoconnect) {
+		// Connect now or wait for the param ballback to connect this
+		if (pwac->default_info.autoconnect && n->channels) {
 			start_streaming(pwac, n);
 		}
 	}
