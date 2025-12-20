@@ -274,6 +274,13 @@ int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, uint32_t target_i
 		     s);
 	}
 
+	if (audio_channels > 8) {
+		blog(LOG_WARNING,
+		     "[pipewire-audio] Stream %p cannot use %u > 8 channels. This is likely a Pro Audio node, will use stereo instead.",
+		     s, audio_channels);
+		audio_channels = 2;
+	}
+
 	enum spa_audio_channel pos[8];
 
 	uint8_t buffer[2048];

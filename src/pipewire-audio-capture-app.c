@@ -590,6 +590,7 @@ static void on_default_sink_param_cb(void *data, int seq, uint32_t id, uint32_t 
 		if (strstr(chn, "AUX") != NULL) {
 			// Sink is configured for pro audio, use stereo
 			// https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/FAQ#what-is-the-pro-audio-profile
+			channels = 2;
 			dstr_copy(&position_str, "FL,FR");
 			break;
 		}
