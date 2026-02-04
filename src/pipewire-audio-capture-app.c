@@ -564,15 +564,21 @@ static void on_default_sink_param_cb(void *data, int seq, uint32_t id, uint32_t 
 
 	struct obs_pw_audio_capture_app *pwac = data;
 
-	uint32_t media_type = 0, parsed_id = 0, channels = 0;
+	uint32_t media_type = 0, media_subtype = 0, parsed_id = 0, channels = 0;
 	struct spa_pod *position_pod = NULL;
 
 	struct spa_pod_parser p;
 	spa_pod_parser_pod(&p, param);
 
 	spa_pod_parser_get_object(&p, SPA_TYPE_OBJECT_Format, &parsed_id, SPA_FORMAT_mediaType, SPA_POD_Id(&media_type),
-				  SPA_FORMAT_AUDIO_channels, SPA_POD_OPT_Int(&channels), SPA_FORMAT_AUDIO_position,
+				  SPA_FORMAT_mediaSubtype, SPA_POD_Id(&media_subtype), SPA_FORMAT_AUDIO_channels,
+				  SPA_POD_OPT_Int(&channels), SPA_FORMAT_AUDIO_position,
 				  SPA_POD_OPT_Pod(&position_pod));
+
+	if (pwac->sink.channels && !channels) {
+		// It's likely we got the channels from a proper format already
+		return;
+	}
 
 	if (parsed_id != SPA_PARAM_EnumFormat || media_type != SPA_MEDIA_TYPE_audio || !channels || !position_pod) {
 		goto stereo_fallback;
