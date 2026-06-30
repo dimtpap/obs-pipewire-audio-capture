@@ -17,6 +17,9 @@ For most applications, the `pipewire-pulse` compatibility layer should be enough
 missing one of those components.
 
 ### Installation
+#### Flatpak
+If you're using the Flatpak version of OBS Studio, install the plugin from [Flathub](https://flathub.org/en/apps/com.obsproject.Studio.Plugin.PipeWireAudioCapture).
+#### Other
 1. Get the `linux-pipewire-audio-(version).tar.gz` archive from the [latest release](https://github.com/dimtpap/obs-pipewire-audio-capture/releases/latest)
 2. In OBS Studio, go to **File**, then click **Show Settings Folder**
 3. In the folder that opens, create a folder called `plugins` if it doesn't already exist
@@ -35,15 +38,6 @@ Your files should look like this
 │       └── locale
 │           ...
 ```
-> [!IMPORTANT]
-> ## Flatpak users note
-> ***THIS INSTALLATION METHOD IS UNSUPPORTED BY THE OBS STUDIO TEAM AND CAN BREAK AT ANY TIME***
-> This plugin relies on a Flatpak permission that OBS Studio could remove at any time, so it can't be on Flathub.
-> If after updating OBS Studio the plugin stops working, check the latest release for a new version, or build the plugin yourself
-> against the latest OBS Studio.
->
-> Note that native OBS Studio packages do not have this problem.
-
 ### Building (for development)
 Ensure you have CMake, PipeWire and OBS Studio/libobs development packages, then in the repo's root:
 ```sh
