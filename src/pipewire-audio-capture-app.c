@@ -591,9 +591,9 @@ static void on_default_sink_param_cb(void *data, int seq, uint32_t id, uint32_t 
 	dstr_init(&position_str);
 
 	for (size_t i = 0; i < position_n; i++) {
-		const char *chn = spa_debug_type_find_short_name(spa_type_audio_channel, position_arr[i]);
+		uint32_t ch = position_arr[i];
 
-		if (strstr(chn, "AUX") != NULL) {
+		if (ch >= SPA_AUDIO_CHANNEL_START_Aux && ch <= SPA_AUDIO_CHANNEL_LAST_Aux) {
 			// Sink is configured for pro audio, use stereo
 			// https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/FAQ#what-is-the-pro-audio-profile
 			channels = 2;
@@ -601,7 +601,8 @@ static void on_default_sink_param_cb(void *data, int seq, uint32_t id, uint32_t 
 			break;
 		}
 
-		dstr_cat(&position_str, chn);
+		const char *ch_str = spa_debug_type_find_short_name(spa_type_audio_channel, ch);
+		dstr_cat(&position_str, ch_str);
 
 		if (position_n - 1 != i) {
 			dstr_cat_ch(&position_str, ',');
