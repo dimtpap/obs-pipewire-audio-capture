@@ -19,13 +19,20 @@ missing one of those components.
 ### Installation
 #### Flatpak
 If you're using the Flatpak version of OBS Studio, install the plugin from [Flathub](https://flathub.org/en/apps/com.obsproject.Studio.Plugin.PipeWireAudioCapture).
-#### Other
+```sh
+flatpak install flathub com.obsproject.Studio.Plugin.PipeWireAudioCapture
+```
+
+If the sources show no devices or apps, run `flatpak override --filesystem=xdg-run/pipewire-0 com.obsproject.Studio` and restart OBS Studio.
+
+---
+
+#### Others
 1. Get the `linux-pipewire-audio-(version).tar.gz` archive from the [latest release](https://github.com/dimtpap/obs-pipewire-audio-capture/releases/latest)
 2. In OBS Studio, go to **File**, then click **Show Settings Folder**
 3. In the folder that opens, create a folder called `plugins` if it doesn't already exist
 4. Extract the archive you downloaded in the `plugins` folder
 5. Restart OBS Studio
-6. If you're using the Flatpak and the sources aren't working, run `flatpak override --filesystem=xdg-run/pipewire-0 com.obsproject.Studio` and restart OBS Studio
 
 Your files should look like this
 ```
