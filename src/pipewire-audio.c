@@ -24,6 +24,9 @@
 
 #include <spa/utils/json.h>
 
+#include <string.h>
+#include <strings.h>
+
 /* Utilities */
 bool json_object_find(const char *obj, const char *key, char *value, size_t len)
 {
@@ -265,8 +268,99 @@ static const struct pw_stream_events stream_events = {
 	.io_changed = on_io_changed_cb,
 };
 
+static enum spa_audio_channel spa_channel_from_name(const char *name)
+{
+	static const struct {
+		const char *name;
+		enum spa_audio_channel channel;
+	} table[] = {
+		{"MONO", SPA_AUDIO_CHANNEL_MONO}, {"FL", SPA_AUDIO_CHANNEL_FL},
+		{"FR", SPA_AUDIO_CHANNEL_FR},     {"FC", SPA_AUDIO_CHANNEL_FC},
+		{"LFE", SPA_AUDIO_CHANNEL_LFE},   {"SL", SPA_AUDIO_CHANNEL_SL},
+		{"SR", SPA_AUDIO_CHANNEL_SR},     {"FLC", SPA_AUDIO_CHANNEL_FLC},
+		{"FRC", SPA_AUDIO_CHANNEL_FRC},   {"RC", SPA_AUDIO_CHANNEL_RC},
+		{"RL", SPA_AUDIO_CHANNEL_RL},     {"RR", SPA_AUDIO_CHANNEL_RR},
+		{"TC", SPA_AUDIO_CHANNEL_TC},     {"TFL", SPA_AUDIO_CHANNEL_TFL},
+		{"TFC", SPA_AUDIO_CHANNEL_TFC},   {"TFR", SPA_AUDIO_CHANNEL_TFR},
+		{"TRL", SPA_AUDIO_CHANNEL_TRL},   {"TRC", SPA_AUDIO_CHANNEL_TRC},
+		{"TRR", SPA_AUDIO_CHANNEL_TRR},   {"RLC", SPA_AUDIO_CHANNEL_RLC},
+		{"RRC", SPA_AUDIO_CHANNEL_RRC},   {"FLW", SPA_AUDIO_CHANNEL_FLW},
+		{"FRW", SPA_AUDIO_CHANNEL_FRW},   {"LFE2", SPA_AUDIO_CHANNEL_LFE2},
+		{"FLH", SPA_AUDIO_CHANNEL_FLH},   {"FCH", SPA_AUDIO_CHANNEL_FCH},
+		{"FRH", SPA_AUDIO_CHANNEL_FRH},   {"AUX0", SPA_AUDIO_CHANNEL_AUX0},
+		{"AUX1", SPA_AUDIO_CHANNEL_AUX1}, {"AUX2", SPA_AUDIO_CHANNEL_AUX2},
+		{"AUX3", SPA_AUDIO_CHANNEL_AUX3}, {"AUX4", SPA_AUDIO_CHANNEL_AUX4},
+		{"AUX5", SPA_AUDIO_CHANNEL_AUX5}, {"AUX6", SPA_AUDIO_CHANNEL_AUX6},
+		{"AUX7", SPA_AUDIO_CHANNEL_AUX7},
+	};
+
+	if (!name || !*name)
+		return SPA_AUDIO_CHANNEL_UNKNOWN;
+
+	for (size_t i = 0; i < sizeof(table) / sizeof(table[0]); i++) {
+		if (strcasecmp(name, table[i].name) == 0)
+			return table[i].channel;
+	}
+	return SPA_AUDIO_CHANNEL_UNKNOWN;
+}
+
+/* position is a comma-separated list of SPA channel short names. */
+static bool parse_spa_position(const char *position, enum spa_audio_channel *pos, uint32_t expected)
+{
+	char tmp[256];
+	size_t len;
+	uint32_t n = 0;
+	char *cursor;
+
+	if (!position || !expected || expected > 8)
+		return false;
+
+	len = strlen(position);
+	if (!len || len >= sizeof(tmp))
+		return false;
+	memcpy(tmp, position, len + 1);
+
+	cursor = tmp;
+	while (*cursor) {
+		char *end;
+		while (*cursor == ' ' || *cursor == '\t')
+			cursor++;
+		if (!*cursor)
+			break;
+
+		end = cursor;
+		while (*end && *end != ',')
+			end++;
+
+		if (*end == ',') {
+			*end = '\0';
+			end++;
+		} else {
+			end = NULL;
+		}
+
+		char *trim = cursor + strlen(cursor);
+		while (trim > cursor && (trim[-1] == ' ' || trim[-1] == '\t'))
+			*--trim = '\0';
+
+		if (n >= expected)
+			return false;
+
+		pos[n] = spa_channel_from_name(cursor);
+		if (pos[n] == SPA_AUDIO_CHANNEL_UNKNOWN)
+			return false;
+		n++;
+
+		if (!end)
+			break;
+		cursor = end;
+	}
+
+	return n == expected;
+}
+
 int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, uint32_t target_id, uint32_t target_serial,
-				uint32_t audio_channels)
+				uint32_t audio_channels, const char *position)
 {
 	if (audio_channels == 0) {
 		blog(LOG_WARNING,
@@ -279,6 +373,7 @@ int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, uint32_t target_i
 		     "[pipewire-audio] Stream %p cannot use %u > 8 channels. This is likely a Pro Audio node, will use stereo instead.",
 		     s, audio_channels);
 		audio_channels = 2;
+		position = NULL;
 	}
 
 	enum spa_audio_channel pos[8];
@@ -288,7 +383,8 @@ int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, uint32_t target_i
 	const struct spa_pod *params[1];
 
 	if (audio_channels) {
-		obs_channels_to_spa_audio_position(pos, audio_channels);
+		if (!position || !parse_spa_position(position, pos, audio_channels))
+			obs_channels_to_spa_audio_position(pos, audio_channels);
 
 		params[0] = spa_pod_builder_add_object(
 			&b, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat, SPA_FORMAT_mediaType,
