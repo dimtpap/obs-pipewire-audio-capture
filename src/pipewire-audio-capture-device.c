@@ -78,7 +78,7 @@ static void start_streaming(struct obs_pw_audio_capture_device *pwac, struct tar
 		pwac->connected_serial = SPA_ID_INVALID;
 	}
 
-	if (obs_pw_audio_stream_connect(&pwac->pw.audio, node->id, node->serial, node->channels) == 0) {
+	if (obs_pw_audio_stream_connect(&pwac->pw.audio, node->id, node->serial, node->channels, NULL) == 0) {
 		pwac->connected_serial = node->serial;
 		blog(LOG_INFO, "[pipewire-audio] %p streaming from %u", pwac->pw.audio.stream, node->serial);
 	} else {

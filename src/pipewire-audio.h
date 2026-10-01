@@ -56,7 +56,7 @@ struct obs_pw_audio_stream {
  * @return 0 on success, < 0 on error
  */
 int obs_pw_audio_stream_connect(struct obs_pw_audio_stream *s, uint32_t target_id, uint32_t target_serial,
-				uint32_t channels);
+				uint32_t channels, const char *position);
 /* ------------------------------------------------- */
 
 /**
