@@ -61,7 +61,7 @@ jobs:
         with:
           path: 'plugin'
       - name: 'Configure'
-        run: cmake -B ./plugin/build -S ./plugin -DCMAKE_BUILD_TYPE=RelWithDebInfo -Dlibobs_DIR="$GITHUB_WORKSPACE/obs/lib/cmake/libobs/"
+        run: cmake -B ./plugin/build -S ./plugin -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLEGACY=ON -Dlibobs_DIR="$GITHUB_WORKSPACE/obs/lib/cmake/libobs/"
       - name: 'Build'
         run: cmake --build ./plugin/build -j4
       - name: 'Package'

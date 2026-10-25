@@ -41,5 +41,17 @@ include_directories(SYSTEM
 
 set_target_properties(linux-pipewire-audio PROPERTIES PREFIX "")
 
-install(TARGETS linux-pipewire-audio LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/obs-plugins)
-install(DIRECTORY data/locale DESTINATION ${CMAKE_INSTALL_DATADIR}/obs/obs-plugins/linux-pipewire-audio)
+option(LEGACY "Build as a legacy plugin for OBS < 33")
+
+if(libobs_VERSION_MAJOR LESS 33 AND NOT LEGACY)
+  message(WARNING "Detected OBS version < 33, but LEGACY is not set. The plugin will be built for OBS version >= 33.")
+endif()
+
+if(LEGACY)
+  install(TARGETS linux-pipewire-audio LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/obs-plugins)
+  install(DIRECTORY data/locale DESTINATION ${CMAKE_INSTALL_DATADIR}/obs/obs-plugins/linux-pipewire-audio)
+else()
+  install(TARGETS linux-pipewire-audio LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/obs-modules/plugins)
+  install(DIRECTORY data/locale DESTINATION ${CMAKE_INSTALL_DATADIR}/obs/obs-modules/plugins/linux-pipewire-audio)
+endif()
+
