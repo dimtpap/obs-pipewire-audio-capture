@@ -35,7 +35,7 @@ jobs:
       - name: 'Install system dependencies'
         run: sudo apt install libpipewire-0.3-dev libsimde-dev
       - name: 'Restore OBS from cache'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: cache-obs
         with:
           path: obs.deb
@@ -49,7 +49,7 @@ jobs:
       - name: 'Install OBS'
         run: sudo dpkg --force-all -i obs.deb
       - name: 'Checkout'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: 'plugin'
       - name: 'Configure'
@@ -68,7 +68,7 @@ jobs:
           cp -r ./plugin/data/ ./linux-pipewire-audio/data/
           tar -zcvf linux-pipewire-audio-$OBS_VERSION.tar.gz linux-pipewire-audio
       - name: 'Upload'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           path: linux-pipewire-audio-${{ matrix.obs-version }}.tar.gz
           name: linux-pipewire-audio-${{ matrix.obs-version }}
